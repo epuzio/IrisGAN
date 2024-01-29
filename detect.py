@@ -82,3 +82,5 @@ else:
             print("To load multiple videos from file: python3 detect.py load input_videos")
             print("To clean all files: python3 detect.py clean")
             print("To clean files by title: python3 detect.py clean title")
+
+
