@@ -1,19 +1,21 @@
-# following this tutorial: https://www.datacamp.com/tutorial/face-detection-python-opencv
-#images from file: https://palashsharma891.medium.com/imagesort-using-python-496470ea2102
-#goal of project - feed in a video (frames), choose frames that have a human face/are distinct from previous frame
-
-#cv2 has video capture https://docs.opencv.org/3.4/dd/d43/tutorial_py_video_display.html
-#haar cascades: https://github.com/opencv/opencv/tree/master/data/haarcascades
-
-#python3 detect.py load input_videos/test2.mp4
-
 import cv2, sys, os, math, glob
 
 def get_title(file_path):
     return os.path.split(os.path.split(file_path)[1])[1].split('.')[0]
 
-def detect_faces():
-    video = cv2.VideoCapture(sys.argv[2])
+def process_videos():
+    if os.path.isfile(sys.argv[2]):
+        detect_faces(sys.argv[2])
+    if os.path.isdir(sys.argv[2]):
+        for file in glob.glob(sys.argv[2] + "/*"):
+            print("Processing:", file)
+            detect_faces(file)
+    else:
+        print("Invalid file path")
+
+def detect_faces(file_path):
+    print("DF fp:", file_path)
+    video = cv2.VideoCapture(file_path)
     fps = math.ceil(video.get(cv2.CAP_PROP_FPS))
     print("fps:", fps) 
     kps = 1 #number of captures per second of film - 1 is every frame, 2 is every other frame, etc
@@ -31,7 +33,7 @@ def detect_faces():
     )
 
     fc = 0
-    title = get_title(sys.argv[2])
+    title = get_title(file_path)
     print("file:", title)
     os.chdir("output_np_images") #specify output of images
     while True: #seems redundant but thanks gpt
@@ -57,7 +59,6 @@ def detect_faces():
         fc += 1
         print("Outputting frame:", fc, end="\r")
 
-
 def remove_files():
     if len(sys.argv) == 2:
         for img in os.listdir('output_np_images'):
@@ -73,10 +74,11 @@ if len(sys.argv) < 1:
 else:
     match sys.argv[1].split('.')[-1]:
         case "load":
-            detect_faces()
+            process_videos()
         case "clean":
             remove_files()
         case "help":
             print("To load single video: python3 detect.py load input_videos/title_of_video.mp4")
+            print("To load multiple videos from file: python3 detect.py load input_videos")
             print("To clean all files: python3 detect.py clean")
             print("To clean files by title: python3 detect.py clean title")
