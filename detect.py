@@ -7,11 +7,6 @@
 
 #python3 detect.py load input_videos/test2.mp4
 
-#Format:
-#load: load in video
-#clean: remove all files in output_np_images
-#clean file_name: remove all files with file_name in output_np_images
-
 import cv2, sys, os, math, glob
 
 def get_title(file_path):
@@ -21,7 +16,7 @@ def detect_faces():
     video = cv2.VideoCapture(sys.argv[2])
     fps = math.ceil(video.get(cv2.CAP_PROP_FPS))
     print("fps:", fps) 
-    kps = 1 #number of captures per video
+    kps = 1 #number of captures per second of film - 1 is every frame, 2 is every other frame, etc
 
     if not video.isOpened():
         print("Error opening video file")
@@ -46,20 +41,19 @@ def detect_faces():
                 break
             gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            faces = []
-            faces.append(front_face_classifier.detectMultiScale(
+            front_face = front_face_classifier.detectMultiScale(
                 gray_image, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
-            ))
-            faces.append(left_profile_classifier.detectMultiScale(
+            )
+            left_profile = left_profile_classifier.detectMultiScale(
                 gray_image, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
-            ))
-            faces.append(left_profile_classifier.detectMultiScale( #flip image to check right profiles
+            )
+            right_profile = left_profile_classifier.detectMultiScale( #flip image to check right profiles
                 cv2.flip(gray_image, 1), scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
-            ))
+            )
 
-            if faces: #faces detected in image (list isn't empty)
-                image_filename = f'{title}_frame{fc}.jpg'  
-                cv2.imwrite(image_filename, frame)
+            if len(front_face) + len(left_profile) + len(right_profile) > 0:
+                    image_filename = f'{title}_frame{fc}.jpg'  
+                    cv2.imwrite(image_filename, frame)
         fc += 1
         print("Outputting frame:", fc, end="\r")
 
@@ -73,7 +67,6 @@ def remove_files():
         for img in os.listdir('output_np_images'):
             if title == img.split("_")[0]:
                 os.remove(os.path.join("output_np_images", img))
-        # os.remove(img) for img in os.listdir('/output_np_images') if sys.argv[3] in file
 
 if len(sys.argv) < 1:
     print("ARG1: input video path as .mp4")
