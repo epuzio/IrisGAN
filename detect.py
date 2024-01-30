@@ -1,9 +1,9 @@
 import cv2, sys, os, math, glob
 
-def get_title(file_path):
+def get_title(file_path): #split file path to get title of video
     return os.path.split(os.path.split(file_path)[1])[1].split('.')[0]
 
-def process_videos():
+def process_videos(): #run detect_faces on single input or on all videos in folder
     if os.path.isfile(sys.argv[2]):
         detect_faces(sys.argv[2])
     if os.path.isdir(sys.argv[2]):
@@ -35,8 +35,8 @@ def detect_faces(file_path):
     fc = 0
     title = get_title(file_path)
     print("file:", title)
-    os.chdir("output_np_images") #specify output of images
-    while True: #seems redundant but thanks gpt
+    os.chdir("output_np_images") #specify output directory of images
+    for _ in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
         read_frame_success, frame = video.read()
         if fc % round(fps / kps) == 0:
             if not read_frame_success:
@@ -69,18 +69,20 @@ def remove_files():
             if title == img.split("_")[0]:
                 os.remove(os.path.join("output_np_images", img))
 
-if len(sys.argv) < 1:
-    print("ARG1: input video path as .mp4")
-else:
-    match sys.argv[1].split('.')[-1]:
-        case "load":
-            process_videos()
-        case "clean":
-            remove_files()
-        case "help":
-            print("To load single video: python3 detect.py load input_videos/title_of_video.mp4")
-            print("To load multiple videos from file: python3 detect.py load input_videos")
-            print("To clean all files: python3 detect.py clean")
-            print("To clean files by title: python3 detect.py clean title")
+def main(): 
+    if len(sys.argv) < 1:
+        print("ARG1: input video path as .mp4")
+    else:
+        match sys.argv[1].split('.')[-1]:
+            case "load":
+                process_videos()
+            case "clean":
+                remove_files()
+            case "help":
+                print("To load single video: python3 detect.py load input_videos/title_of_video.mp4")
+                print("To load multiple videos from file: python3 detect.py load input_videos")
+                print("To clean all files: python3 detect.py clean")
+                print("To clean files by title: python3 detect.py clean title")
 
-
+if __name__ == "__main__":
+    main()
