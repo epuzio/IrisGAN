@@ -1,9 +1,22 @@
 import cv2, sys, os, math, glob
 
-def get_title(file_path): #split file path to get title of video
+# To fix:
+# 1) Output images should be numpy arrays, 192x256? Look at ArtGAN training set for correct format
+#   -> This is a change that can come after gan.py is working...
+# 2) Should be able to specify input/output files from command line, with default as input_videos and output_training_set
+# 3) The code works though :~)
+
+def get_title(file_path): 
+    '''
+    Helper function to split file path to get title of video
+    '''
     return os.path.split(os.path.split(file_path)[1])[1].split('.')[0]
 
-def process_videos(): #run detect_faces on single input or on all videos in folder
+def process_videos():
+    '''
+    Helper function to run detect_faces on single .mp4 input or on all videos in specified folder
+    '''
+    
     if os.path.isfile(sys.argv[2]):
         detect_faces(sys.argv[2])
     if os.path.isdir(sys.argv[2]):
@@ -14,6 +27,10 @@ def process_videos(): #run detect_faces on single input or on all videos in fold
         print("Invalid file path")
 
 def detect_faces(file_path):
+    '''
+    Uses cv2 CascadeClassifier to find all frames containing human faces,
+    frames are output to local output_np_images folder
+    '''
     print("DF fp:", file_path)
     video = cv2.VideoCapture(file_path)
     fps = math.ceil(video.get(cv2.CAP_PROP_FPS))
@@ -60,6 +77,9 @@ def detect_faces(file_path):
         print("Outputting frame:", fc, end="\r")
 
 def remove_files():
+    '''
+    Removes images from output_np_images
+    '''
     if len(sys.argv) == 2:
         for img in os.listdir('output_np_images'):
             os.remove(os.path.join("output_np_images", img))

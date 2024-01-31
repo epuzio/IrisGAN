@@ -1,30 +1,76 @@
 #rectGAN: https://github.com/xjdeng/RectGAN/blob/master/aspect_ratio.py
+#artGAN: https://github.com/cs-chan/ArtGAN/blob/master/ArtGAN/Genre128GANAE.py
+
+# To fix:
+# 1) Clean up code 
+# 2) Make code work on smaller dataset?
+# 3) Currently in progress: implementing discriminator/generator, understanding the different types of neural net layers,
+#    adjusting for best performance. I do not understand how layers work but most GANs seem to follow
+#    Conv2D -> LeakyReLU -> Batchnorm for a few rounds of up/downscaling?
+
+#imports
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from tensorflow.keras import layers
 import numpy as np
 from matplotlib import pyplot as plt
 
+#image source, dimensions
+data_directory = './images_V2I/output_training_set' #output file name
+width = 192
+height = 256
+strides = [(4,4), (3,4), (2,2)] #from rectGAN aspect_ratio
+
+alpha_Discriminator = 0.2
+alpha_Generator = 0.2
+momentum_BatchNormalization = 0.8 #rectgan suggests 0.3
 
 
-painting_dimensions = (192, 256, 1) #we want 3:4 ratio for final paintings
-strides = [(4,4), (3,4), (2,2)] #from rectGAN
-
+batch_size = 8
+batch_length = 100
+noise_shape = (1, 1, 8)
 samples = tf.placeholder(tf.float32, [None, 100])
 noise = tf.placeholder(tf.float32, [None, 100])
 
-#Load from images
-(X_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
-train_images = train_images.astype('float32') / 255.0
+#Parameters (from Genre128GANAE)
+init_iter, max_iter = 0, 50000 
+display_iter = 100
+eval_iter = 100
+store_img_iter = 100
+save_iter = 1000
+
+lr_init = 0.0002
+batch_size = 100
+zdim = 100
+n_classes = 10
+dropout = 0.2
+im_size = [64, 64]
+dname, gname = 'd_', 'g_'
+tf.set_random_seed(1234)
+
+data_set = '.datase'
 
 
+# #Load from images
+# (X_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
+# train_images = train_images.astype('float32') / 255.0
 
-# Generator model
+
+def add_generator_layer(model): #from rectgan
+    model.add(Conv2DTranspose( filters, shape, padding='same',
+        strides=mystrides, kernel_initializer=Args.kernel_initializer))
+
+    model.add(BatchNormalization(momentum=momentum_BatchNormalization))
+    model.add(LeakyReLU(alpha=alpha_Generator))
+    return x
+
+
+# Generator model (https://www.youtube.com/watch?v=AALBGpLbj6Q)
 def generator():
     model = tf.keras.Sequential() #add layers to generator model
     #todo: edit reshape for 3:4 ratio
 
-    #First layer (https://www.youtube.com/watch?v=AALBGpLbj6Q)
+    #First layer
     model.add(tf.layers.Dense(7*7*256, input_dim=128, activation='relu'))
     model.add(LeakyReLU(alpha=0.2))
     model.add(Reshape(7, 7, 128))
@@ -52,43 +98,26 @@ def generator():
 
     return model
 
+
+def add_discriminator_layer(model, oc): #from rectgan/nets.py and https://github.com/vmvargas/GAN-for-Nuclei-Detection/blob/master/model-MNIST-cross-validation.py
+    model.add(BatchNormalization(momentum=momentum_BatchNormalization))
+    model.add(Conv2D(out_channels=oc, kernel_size=3, strides=(2,2), padding='same'))
+    model.add(LeakyReLU(alpha_Discriminator))
+
 #other tutorial: https://github.com/vmvargas/GAN-for-Nuclei-Detection/blob/master/model-MNIST-cross-validation.py
 def discriminator(): #same tutorial, https://github.com/nicknochnack/GANBasics/blob/main/FashionGAN-Tutorial.ipynb
     model = Sequential() #FIGURE OUT STRIDES for a rectangular image!!!
 
-    #First layer (conv layer)
+    #First layer (conv layer) without batchnorm
     model.add(Conv2D(32, kernel_size=3, strides=strides[0], input_shape=painting_dimensions, padding="same"))
     model.add(LeakyReLU(alpha=0.2))
     model.add(Dropout(0.25))#drop 25% of input units
 
-    #Second layer (conv layer)
-    model.add(Conv2D(64, kernel_size=3, strides=strides[1], padding='same'))
-    model.add(ZeroPadding2D(padding=((0,1),(0,1))))
-    model.add(LeakyReLU(alpha=0.2))
+    #Add conv layers?
+    add_discriminator_layer(model, 128)
+    add_discriminator_layer(model, 256)
+    add_discriminator_layer(model, 512)
     model.add(Dropout(0.25))
-
-    model.add(BatchNormalization(momentum=0.8))
-    model.add(Conv2D(128, kernel_size=3, strides=strides[2], padding='same'))
-    model.add(LeakyReLU(alpha=0.2))
-    model.add(Dropout(0.25))
-    model.add(BatchNormalization(momentum=0.8))
-    model.add(Conv2D(256, kernel_size=3, strides=strides[2], padding='same'))
-    model.add(LeakyReLU(alpha=0.2))
-    model.add(Dropout(0.25))
-
-    #Second layer (conv layer)
-    # model.add(Conv2D(128, 5))
-    # model.add(LeakyReLU(alpha=0.2))
-    # model.add(Dropout(0.4))
-
-    # #Third layer (conv layer)
-    # model.add(Conv2D(256, 5))
-    # model.add(LeakyReLU(alpha=0.2))
-    # model.add(Dropout(0.4))
-
-    # model.add(Flatten())
-    # model.add(Dropout(0.4))
-    # model.add(Dense(1, activation='sigmoid'))
 
     return model
 
