@@ -1,13 +1,15 @@
-import cv2, sys, os, math, glob
-from PIL import image
+import cv2, sys, os, math, glob, time
 
 # To fix:
 # 1) Output images should be numpy arrays, 192x256? Look at ArtGAN training set for correct format
-#   -> This is a change that can come after gan.py is working...
+#   # This is a change that can come after gan.py is working...
 # 2) Should be able to specify input/output files from command line, with default as input_videos and output_training_set
 # 3) Center faces in output (DONE)
-    # Figure out cropping 
-# 4) The code works though :~)
+    # Figure out cropping (DONE)
+    # Downsize output images by 2x
+    # Add user control for cropping from the command line
+# 4) It says invalid file path at the end
+# 5) Generally make the code cleaner and more readable
 
 def get_title(file_path): 
     '''
@@ -29,23 +31,38 @@ def process_videos():
     else:
         print("Invalid file path")
 
-def crop_bounds(x, y, w, h, dim_x, dim_y, frame):
-    center_x, center_y = x + (w // 2), y + (h // 2)
+def crop_bounds(x, y, w, h, dim_x, dim_y, frame): #clean up later
+    '''
+    Helper function to crop frames around faces to dimensions specified by dim_x, dim_y.
+    Extra logic added so that the crop stays within the bounds of the original image.
+    '''
+    center_x, center_y = x + (w // 2), y + (h // 2) 
     x_start = max(0, center_x - dim_x)
     y_start = max(0, center_y - dim_y)
     x_end = min(frame.shape[1], center_x + dim_x)
     y_end = min(frame.shape[0], center_y + dim_y)
+    
+    cropped_width = x_end - x_start
+    cropped_height = y_end - y_start
+    if cropped_width < dim_x * 2:
+        if x_start == 0:
+            x_end = min(frame.shape[1], x_end + dim_x * 2 - cropped_width)
+        else:
+            x_start = max(0, x_start - (dim_x * 2 - cropped_width))
+    if cropped_height < dim_y * 2:
+        if y_start == 0:
+            y_end = min(frame.shape[0], y_end + dim_y * 2 - cropped_height)
+        else:
+            y_start = max(0, y_start - (dim_y * 2 - cropped_height))
+    
     frame = frame[y_start:y_end, x_start:x_end]
-    # center_x, center_y = x + (w // 2), y + (h // 2) #modulo wrap version!
-    # frame = frame[(center_x - dim_x) % frame.shape[0]:(center_x + dim_x) % frame.shape[0], (center_y - dim_y) % frame.shape[1]:(center_y + dim_y) % frame.shape[1]]
     return frame
 
-def detect_faces(file_path, crop_frames = True, dim_x = 192, dim_y = 256):
+def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
     '''
     Uses cv2 CascadeClassifier to find all frames containing human faces,
     frames are output to local output_np_images folder
     '''
-    print("DF fp:", file_path)
     video = cv2.VideoCapture(file_path)
     fps = math.ceil(video.get(cv2.CAP_PROP_FPS))
     dim_x, dim_y = dim_x // 2, dim_y // 2 #3:4 ratio by default
@@ -65,7 +82,9 @@ def detect_faces(file_path, crop_frames = True, dim_x = 192, dim_y = 256):
 
     fc = 0
     title = get_title(file_path)
-    print("file:", title)
+    print("File:", title)
+    print("Frames:", int(video.get(cv2.CAP_PROP_FRAME_COUNT)))
+    start_time = time.time()
     os.chdir("output_np_images") #specify output directory of images
     for _ in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
         image_filename = f'{title}_frame{fc}.jpg'  
@@ -80,30 +99,34 @@ def detect_faces(file_path, crop_frames = True, dim_x = 192, dim_y = 256):
             left_profile = left_profile_classifier.detectMultiScale(
                 gray_image, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
             )
-            for (x, y, w, h) in left_profile:
-                if crop_frames:
-                    frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                cv2.imwrite(image_filename, frame)
+            if len(left_profile) > 0:
+                for (x, y, w, h) in left_profile:
+                    if crop_frames:
+                        frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
+                    cv2.imwrite(image_filename, frame)
             
             #Right profile
             right_profile = left_profile_classifier.detectMultiScale( #flip image to check right profiles
                 cv2.flip(gray_image, 1), scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
             )
-            for (x, y, w, h) in right_profile:
-                if crop_frames:
-                    frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                cv2.imwrite(image_filename, frame)
+            if len(right_profile) > 0:
+                for (x, y, w, h) in right_profile:
+                    if crop_frames:
+                        frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
+                    cv2.imwrite(image_filename, frame)
             
             #Front face    
             front_face = front_face_classifier.detectMultiScale(
                 gray_image, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
             )
-            for (x, y, w, h) in front_face:
-                if crop_frames:
-                    frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                cv2.imwrite(image_filename, frame)
+            if len(front_face) > 0:
+                for (x, y, w, h) in front_face:
+                    if crop_frames:
+                        frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
+                    cv2.imwrite(image_filename, frame)
         fc += 1
-        print("Outputting frame:", fc, end="\r")
+        print("Outputting Frame:", fc, end="\r")
+    print("Finished in:", round((time.time() - start_time), 2), "seconds.")
 
 def remove_files():
     '''

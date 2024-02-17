@@ -4,9 +4,11 @@
 # To fix:
 # 1) Clean up code 
 # 2) Make code work on smaller dataset?
+    # Implement K-Fold cross validation if possible for a GAN
 # 3) Currently in progress: implementing discriminator/generator, understanding the different types of neural net layers,
 #    adjusting for best performance. I do not understand how layers work but most GANs seem to follow
 #    Conv2D -> LeakyReLU -> Batchnorm for a few rounds of up/downscaling?
+# 4) Use SGD!
 
 #imports
 import tensorflow as tf
@@ -25,18 +27,20 @@ from sklearn.model_selection import train_test_split
 
 #image source, dimensions
 
-image_dimensions = (192, 256, 1)
-batch_size = 4
+
 batch_length = 100
 data_directory = './images_V2I/output_training_set' #output file name
+EPOCHS = 50
+EXAMPLES_TO_GENERATE = 6
+IMAGE_DIMENSIONS = (192, 256, 1)
+BATCH_SIZE = 4
 
 strides = [(4,4), (3,4), (2,2)] #from rectGAN aspect_ratio
-noise = tf.random.normal([1, 100])
+noise_dim = 100
 
 alpha_Discriminator = 0.2
 alpha_Generator = 0.2
 momentum_BatchNormalization = 0.8 #rectgan suggests 0.3
-
 
 def add_generator_layer(model, filters, kernel_size, num_strides): #from rectgan
     model.add(layers.Conv2DTranspose(filters, kernel_initializer=kernel_size, strides=num_strides, padding='same', use_bias=False))
@@ -77,54 +81,91 @@ def make_discriminator(): #same tutorial, https://github.com/nicknochnack/GANBas
     return model
 
 def discriminator_loss(real_output, fake_output):
-    cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-    real_loss = cross_entropy(tf.ones_like(real_output), real_output) #real_output = 1
-    fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output) #fake_output = 0
+    real_loss = tf.keras.losses.BinaryCrossEntropy(from_logits=True)(tf.ones_like(real_output), real_output) #real_output = 1
+    fake_loss = tf.keras.losses.BinaryCrossEntropy(from_logits=True)(tf.zeros_like(fake_output), fake_output) #fake_output = 0
     total_loss = real_loss + fake_loss
     return total_loss
 
 def generator_loss(fake_output):
-    return tf.keras.losses.BinaryCrossentropy(from_logits=True)(tf.ones_like(fake_output), fake_output)
+    return tf.keras.losses.BinaryCrossEntropy(from_logits=True)(tf.ones_like(fake_output), fake_output) #array of 1s
 
 
 generator = make_generator()
-gen_image = generator(noise, training=False)
-plt.imshow(gen_image[0, :, :, 0], cmap='gray')
+discriminator = make_discriminator()
 
 
-# generator_optimizer = tf.keras.optimizers.Adam(1e-4)
-# discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
+generator_optimizer = tf.keras.optimizers.Adam(1e-4)
+discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 
-# checkpoint_dir = './training_checkpoints'
-# checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
-# checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer, 
-#                                  discriminator_optimizer=discriminator_optimizer, 
-#                                  generator=generator, discriminator=discriminator)
-                                        
+checkpoint_dir = 'gan_checkpoints'
+checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
+checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer, 
+                                 discriminator_optimizer=discriminator_optimizer, 
+                                 generator=generator, discriminator=discriminator)
 
-# # https://pylessons.com/gan-introduction
-# def train_step(epochs):
-#     for epoch in range(epochs):
-#         for _ in range(X_train.shape[0]):
-#             # Generate random noise as an input to the generator
-#             noise = np.random.normal(0, 1, (batch_size, latent_dim))
-#             # Generate fake images using the generator
-#             generated_images = generator.predict(noise)
-#             # Select a random batch of real images
-#             idx = np.random.randint(0, X_train.shape[0], batch_size)
-#             real_images = X_train[idx]
-#             # Labels for real and fake images
-#             real_labels = np.ones((batch_size, 1))
-#             fake_labels = np.zeros((batch_size, 1))
-#             # Train the discriminator on real and fake images
-#             d_loss_real = discriminator.train_on_batch(real_images, real_labels)
-#             d_loss_fake = discriminator.train_on_batch(generated_images, fake_labels)
-#             d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
-            
-#             # Train the generator
-#             noise = np.random.normal(0, 1, (batch_size, latent_dim))
-#             valid_labels = np.ones((batch_size, 1))
-#             g_loss = gan.train_on_batch(noise, valid_labels)
+#https://www.tensorflow.org/tutorials/generative/dcgan
+@tf.function
+def train_step(images):
+    noise = tf.random.normal([BATCH_SIZE, noise_dim])
 
-#             print(f"Epoch {epoch+1}, [D loss: {d_loss[0]} | D accuracy: {100 * d_loss[1]}] [G loss: {g_loss}]")
+    with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+      generated_images = generator(noise, training=True)
 
+      real_output = discriminator(images, training=True)
+      fake_output = discriminator(generated_images, training=True)
+
+      gen_loss = generator_loss(fake_output)
+      disc_loss = discriminator_loss(real_output, fake_output)
+
+    gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
+    gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
+
+    generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
+    discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
+
+
+#https://www.tensorflow.org/tutorials/generative/dcgan
+def train(dataset, epochs):
+  for epoch in range(epochs):
+    start = time.time()
+
+    for image_batch in dataset:
+      train_step(image_batch)
+
+    # Produce images for the GIF as you go
+    display.clear_output(wait=True)
+    generate_and_save_images(generator,
+                             epoch + 1,
+                             seed)
+
+    # Save the model every 15 epochs
+    if (epoch + 1) % 15 == 0:
+      checkpoint.save(file_prefix = checkpoint_prefix)
+
+    print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
+
+  # Generate after the final epoch
+  display.clear_output(wait=True)
+  generate_and_save_images(generator,
+                           epochs,
+                           seed)
+  
+  
+  
+  
+  
+#https://www.tensorflow.org/tutorials/generative/dcgan
+def generate_and_save_images(model, epoch, test_input):
+  # Notice `training` is set to False.
+  # This is so all layers run in inference mode (batchnorm).
+  predictions = model(test_input, training=False)
+
+  fig = plt.figure(figsize=(4, 4))
+
+  for i in range(predictions.shape[0]):
+      plt.subplot(4, 4, i+1)
+      plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
+      plt.axis('off')
+
+  plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
+  plt.show()
