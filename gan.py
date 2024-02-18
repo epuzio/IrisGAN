@@ -130,10 +130,7 @@ def train_step(images, generator, discriminator, generator_optimizer, discrimina
   
 #https://www.tensorflow.org/tutorials/generative/dcgan
 def generate_and_save_images(model, epoch, test_input):
-  # Notice `training` is set to False.
-  # This is so all layers run in inference mode (batchnorm).
   predictions = model(test_input, training=False)
-
   fig = plt.figure(figsize=(4, 4))
 
   for i in range(predictions.shape[0]):
@@ -149,20 +146,30 @@ def generate_and_save_images(model, epoch, test_input):
 #https://www.tensorflow.org/tutorials/generative/dcgan
 def train(dataset, epochs): #Run to train set
   
+  print("Creating generator model...", end="\r")
   generator = make_generator()
+  
+  print("Creating discriminator model...", end="\r")
   discriminator = make_discriminator()
 
   #Optimize losses and performance:
+  print("Creating optimizers...", end="\r")
   generator_optimizer = tf.keras.optimizers.Adam(1e-4)
   discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 
+  print("Creating directory for model checkpoints...", end="\r")
   checkpoint_dir = 'GAN_checkpoints'
+  if not os.path.exists(checkpoint_dir):
+    os.makedirs(checkpoint_dir)
+  
   checkpoint_prefix = os.path.join(checkpoint_dir, "checkpt")
+  
   checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer, 
                                   discriminator_optimizer=discriminator_optimizer, 
                                   generator=generator, discriminator=discriminator)
   
-  
+  print("SETUP COMPLETE.")
+  print("Beginning training loop.", end="\r")
   for epoch in range(epochs):
     start = time.time()
 
@@ -178,8 +185,9 @@ def train(dataset, epochs): #Run to train set
     # Save the model every 15 epochs
     if (epoch + 1) % 15 == 0:
       checkpoint.save(file_prefix = checkpoint_prefix)
+      print("Checkpoint saved successfully to file:", checkpoint_dir)
 
-    print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
+    print ('Time for epoch {} is {} sec\n'.format(epoch + 1, time.time()-start))
 
   # Generate after the final epoch
   display.clear_output(wait=True)
