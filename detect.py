@@ -39,12 +39,12 @@ def process_videos():
     else:
         print("Invalid file path")
 
-def crop_bounds(x, y, w, h, dim_x, dim_y, frame): #clean up later
+def crop_bounds(x, y, dim_x, dim_y, frame): #clean up later
     '''
     Helper function to crop frames around faces to dimensions specified by dim_x, dim_y.
     Extra logic added so that the crop stays within the bounds of the original image.
     '''
-    center_x, center_y = x + (w // 2), y + (h // 2) 
+    center_x, center_y = x + (dim_x // 2), y + (dim_y // 2) 
     x_start = max(0, center_x - dim_x)
     y_start = max(0, center_y - dim_y)
     x_end = min(frame.shape[1], center_x + dim_x)
@@ -64,7 +64,8 @@ def crop_bounds(x, y, w, h, dim_x, dim_y, frame): #clean up later
             y_start = max(0, y_start - (dim_y * 2 - cropped_height))
     
     frame = frame[y_start:y_end, x_start:x_end]
-    print("Cropped Frame:", frame.shape, end="\r")
+    print("Cropped width:", cropped_width, "Cropped height:", cropped_height)
+    print("Cropped Frame:", frame.shape)
     return frame
 
 def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
@@ -74,7 +75,6 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
     '''
     video = cv2.VideoCapture(file_path)
     fps = math.ceil(video.get(cv2.CAP_PROP_FPS))
-    dim_x, dim_y = dim_x // 2, dim_y // 2 #3:4 ratio by default
     kps = 1 #number of captures per second of film - 1 is every frame, 2 is every other frame, etc
 
     if not video.isOpened():
@@ -109,10 +109,10 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
                 gray_image, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
             )
             if len(left_profile) > 0:
-                for (x, y, w, h) in left_profile:
+                for (x, y, _, _) in left_profile:
                     if crop_frames:
-                        frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                        resize(frame, size=(192, 256)) #resize???
+                        frame = crop_bounds(x, y, dim_x, dim_y, frame)
+                        # resize(frame, size=(192, 256)) #resize???
                     cv2.imwrite(image_filename, frame)
             
             #Right profile
@@ -120,10 +120,10 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
                 cv2.flip(gray_image, 1), scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
             )
             if len(right_profile) > 0:
-                for (x, y, w, h) in right_profile:
+                for (x, y, _, _) in right_profile:
                     if crop_frames:
-                        frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                        resize(frame, size=(192, 256)) #resize by x2
+                        frame = crop_bounds(x, y, dim_x, dim_y, frame)
+                        # resize(frame, size=(192, 256)) #resize by x2
                     cv2.imwrite(image_filename, frame)
             
             #Front face    
@@ -131,10 +131,10 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
                 gray_image, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
             )
             if len(front_face) > 0:
-                for (x, y, w, h) in front_face:
+                for (x, y, _, _) in front_face:
                     if crop_frames:
-                        frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                        resize(frame, size=(192, 256)) #resize by x2
+                        frame = crop_bounds(x, y, dim_x, dim_y, frame)
+                        # resize(frame, size=(192, 256)) #resize by x2
                     cv2.imwrite(image_filename, frame)
         fc += 1
         print("Outputting Frame:", fc, end="\r")
