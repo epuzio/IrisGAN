@@ -172,6 +172,7 @@ def make_training_set():
     tfrecord_file_path = 'output.tfrecord'
     
     if(os.path.exists("output_training_set.zip")): #There's a .zip file for the training set called "output_training_set.zip"
+        count = 0
         with TFRecordWriter(tfrecord_file_path) as writer:
             with zipfile.ZipFile("output_training_set.zip", "r") as zip_ref:
                 # Iterate over the files in the zip file
@@ -180,24 +181,27 @@ def make_training_set():
                     image_data = zip_ref.read(file_name)
                     
                     feature = {
-                        'image': Feature(bytes_list=BytesList(value=[image_data])),
+                        'image': Feature(bytes_list=BytesList(value=[image_data]))
                     }
                     
                     example = Example(features=Features(feature=feature))
                     writer.write(example.SerializeToString())
-
-        print(f"TFRecord file created from zip: {tfrecord_file_path}", end="\r")
+                    count += 1
+        print(f"TFRecord file created from zip: {tfrecord_file_path}, {count} images written.")
         
     else: #There's no .zip file for the training set, make a .tfrecord file from output_images
         with TFRecordWriter(tfrecord_file_path) as writer:
+            count = 0
             for img in os.listdir("output_images"):
                 feature = { #make 
-                    'image': Feature(bytes_list=BytesList(value=[encode_jpeg(img).numpy()])),
+                    'image': Feature(bytes_list=BytesList(value=[encode_jpeg(img).numpy()])) #as bytes list
                 }
 
                 example = Example(features=Features(feature=feature))
                 writer.write(example.SerializeToString())
-        print(f"TFRecord file created from folder: {tfrecord_file_path}", end="\r")
+                count += 1
+        print(f"TFRecord file created from folder: {tfrecord_file_path}, {count} images written.")
+        
 
 def main(): 
     if len(sys.argv) < 1:
