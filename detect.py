@@ -1,15 +1,23 @@
-import cv2, sys, os, math, glob, time
+import cv2, sys, os, math, glob, time, zipfile
+from tensorflow.image import resize
+from tensorflow.io import TFRecordWriter, encode_jpeg
+from tensorflow.train import Example, Features, Feature, BytesList
 
 # To fix:
 # 1) Output images should be numpy arrays, 192x256? Look at ArtGAN training set for correct format
 #   # This is a change that can come after gan.py is working...
 # 2) Should be able to specify input/output files from command line, with default as input_videos and output_training_set
+    # or as global variables
 # 3) Center faces in output (DONE)
     # Figure out cropping (DONE)
     # Downsize output images by 2x
-    # Add user control for cropping from the command line
+    # Add user control for cropping dimensions from the command line
 # 4) It says invalid file path at the end
 # 5) Generally make the code cleaner and more readable
+# 6) TFRecord support >:) (DONE?)
+    # Tensorflow takes ages to import - might be worth moving make_training_set to a separate file
+# 7) Make some global variables for names of files and directories
+# 8 (not really)) Chaser is a good album :~)
 
 def get_title(file_path): 
     '''
@@ -56,12 +64,13 @@ def crop_bounds(x, y, w, h, dim_x, dim_y, frame): #clean up later
             y_start = max(0, y_start - (dim_y * 2 - cropped_height))
     
     frame = frame[y_start:y_end, x_start:x_end]
+    print("Cropped Frame:", frame.shape, end="\r")
     return frame
 
 def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
     '''
     Uses cv2 CascadeClassifier to find all frames containing human faces,
-    frames are output to local output_np_images folder
+    frames are output to local output_images folder
     '''
     video = cv2.VideoCapture(file_path)
     fps = math.ceil(video.get(cv2.CAP_PROP_FPS))
@@ -85,7 +94,7 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
     print("File:", title)
     print("Frames:", int(video.get(cv2.CAP_PROP_FRAME_COUNT)))
     start_time = time.time()
-    os.chdir("output_np_images") #specify output directory of images
+    os.chdir("output_images") #specify output directory of images
     for _ in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
         image_filename = f'{title}_frame{fc}.jpg'  
         read_frame_success, frame = video.read()
@@ -103,6 +112,7 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
                 for (x, y, w, h) in left_profile:
                     if crop_frames:
                         frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
+                        resize(frame, size=(192, 256)) #resize???
                     cv2.imwrite(image_filename, frame)
             
             #Right profile
@@ -113,6 +123,7 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
                 for (x, y, w, h) in right_profile:
                     if crop_frames:
                         frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
+                        resize(frame, size=(192, 256)) #resize by x2
                     cv2.imwrite(image_filename, frame)
             
             #Front face    
@@ -123,6 +134,7 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
                 for (x, y, w, h) in front_face:
                     if crop_frames:
                         frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
+                        resize(frame, size=(192, 256)) #resize by x2
                     cv2.imwrite(image_filename, frame)
         fc += 1
         print("Outputting Frame:", fc, end="\r")
@@ -130,16 +142,62 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
 
 def remove_files():
     '''
-    Removes images from output_np_images
+    Removes images from output_images
     '''
     if len(sys.argv) == 2:
-        for img in os.listdir('output_np_images'):
-            os.remove(os.path.join("output_np_images", img))
+        for img in os.listdir('output_images'):
+            os.remove(os.path.join("output_images", img))
     if len(sys.argv) == 3:
         title = get_title(sys.argv[2])
-        for img in os.listdir('output_np_images'):
+        for img in os.listdir('output_images'):
             if title == img.split("_")[0]:
-                os.remove(os.path.join("output_np_images", img))
+                os.remove(os.path.join("output_images", img))
+
+
+def zip_files():
+    '''
+    Zips all images in output_images to a .zip file
+    '''
+    with zipfile.ZipFile("output_training_set.zip", "w") as zipf: #name shouldn't be hardcoded, fix later
+        for img in os.listdir("output_images"):
+            zipf.write(os.path.join("output_images", img), img)
+            
+            
+def make_training_set():
+    '''
+    Save all images in output_images to a .tfrecord file - this is an efficient way 
+    to store a dataset for the GAN
+    '''
+    
+    tfrecord_file_path = 'output.tfrecord'
+    
+    if(os.path.exists("output_training_set.zip")): #There's a .zip file for the training set called "output_training_set.zip"
+        with TFRecordWriter(tfrecord_file_path) as writer:
+            with zipfile.ZipFile("output_training_set.zip", "r") as zip_ref:
+                # Iterate over the files in the zip file
+                for file_name in zip_ref.namelist():
+                    # Read the image from the zip file
+                    image_data = zip_ref.read(file_name)
+                    
+                    feature = {
+                        'image': Feature(bytes_list=BytesList(value=[image_data])),
+                    }
+                    
+                    example = Example(features=Features(feature=feature))
+                    writer.write(example.SerializeToString())
+
+        print(f"TFRecord file created from zip: {tfrecord_file_path}", end="\r")
+        
+    else: #There's no .zip file for the training set, make a .tfrecord file from output_images
+        with TFRecordWriter(tfrecord_file_path) as writer:
+            for img in os.listdir("output_images"):
+                feature = { #make 
+                    'image': Feature(bytes_list=BytesList(value=[encode_jpeg(img).numpy()])),
+                }
+
+                example = Example(features=Features(feature=feature))
+                writer.write(example.SerializeToString())
+        print(f"TFRecord file created from folder: {tfrecord_file_path}", end="\r")
 
 def main(): 
     if len(sys.argv) < 1:
@@ -150,11 +208,17 @@ def main():
                 process_videos()
             case "clean":
                 remove_files()
+            case "zip":
+                zip_files()
+            case "tfds":
+                make_training_set()
             case "help":
                 print("To load single video: python3 detect.py load input_videos/title_of_video.mp4")
                 print("To load multiple videos from file: python3 detect.py load input_videos")
                 print("To clean all files: python3 detect.py clean")
                 print("To clean files by title: python3 detect.py clean title")
+                print("Make zip file from image set: python3 detect.py zip")
+                print("Make tfds (for GAN): python3 detect.py tfds")
 
 if __name__ == "__main__":
     main()
