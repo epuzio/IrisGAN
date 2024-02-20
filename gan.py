@@ -101,12 +101,6 @@ def discriminator_loss(real_output, fake_output):
 def generator_loss(fake_output):
   return tf.keras.losses.BinaryCrossEntropy(from_logits=True)(tf.ones_like(fake_output), fake_output) #array of 1s
 
-
-
-
-
-
-
 ######## Running the model ########
 
 #https://www.tensorflow.org/tutorials/generative/dcgan
@@ -146,6 +140,7 @@ def generate_and_save_images(model, epoch, test_input):
   
   
 #https://www.kaggle.com/code/drzhuzhe/monet-cyclegan-tutorial  
+#decodes into tensor
 def decode_image(image):
     image = tf.image.decode_jpeg(image, channels=3)
     image = (tf.cast(image, tf.float32) / 127.5) - 1
@@ -156,12 +151,11 @@ def decode_image(image):
 #https://www.kaggle.com/code/drzhuzhe/monet-cyclegan-tutorial
 def read_tfrecord(example):
     tfrecord_format = {
-        "image": tf.io.FixedLenFeature([], tf.string)
+      "image": tf.io.FixedLenFeature([], tf.string)
     }
     example = tf.io.parse_single_example(example, tfrecord_format)
     image = decode_image(example['image'])
     return image
-
   
 #https://www.tensorflow.org/tutorials/generative/dcgan
 #https://github.com/asahi417/CycleGAN/blob/master/cycle_gan/cycle_gan.py

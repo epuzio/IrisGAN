@@ -45,35 +45,27 @@ def crop_bounds(x, y, w, h, dim_x, dim_y, frame): #why did this algorithm take m
     Extra logic added so that the crop stays within the bounds of the original image.
     Dim_x and Dim_y are the x and y dimensions of the cropped frame
     '''
-    # print("Frame:", frame.shape)
-    # print("center:", x + (dim_x // 2), y + (dim_y // 2))
-    
     center_x =  x + (w//2)
     center_y =  y + (h//2)
     top_x = center_x - (dim_x // 2)
     top_y = center_y - (dim_y // 2)
     bottom_x = center_x + (dim_x // 2)
     bottom_y = center_y + (dim_y // 2)
-    # print("top:", top_x, top_y, "bottom:", bottom_x, bottom_y)
+    
     if top_x < 0:
         bottom_x -= top_x
         top_x = 0
     if top_y < 0:
         bottom_y -= top_y
         top_y = 0
-    
-    # print("top:", top_x, top_y, "bottom:", bottom_x, bottom_y)
     if bottom_x > frame.shape[1]:
         top_x -= (bottom_x - frame.shape[1])
         bottom_x = frame.shape[1]
-        
     if bottom_y > frame.shape[0]:
         top_y -= (bottom_y - frame.shape[0])
         bottom_y = frame.shape[0]
-    # print("top:", top_x, top_y, "bottom:", bottom_x, bottom_y)
         
     cropped_frame = frame[top_y:bottom_y, top_x:bottom_x]
-    print("Cropped Frame:", cropped_frame.shape)
     return cropped_frame
         
 def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
