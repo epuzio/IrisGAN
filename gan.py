@@ -142,23 +142,26 @@ def generate_and_save_images(model, epoch, test_input):
   plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
   plt.show()
   
-  
-  
-  
-  
-# def _parse_function(): 
-#   '''
-#   Decode TFRecord binary to build dataset - images are stored as a TFRecord binary for space efficiency
-#   '''
-#   feature_description = {
-#       'image': tf.io.FixedLenFeature([], tf.string),
-#   }
-#   example = tf.io.parse_single_example(example_proto, feature_description)
-#   image = tf.io.decode_jpeg(example['image'])
-#   image = tf.cast(image, tf.float32) / 127.5 - 1.0  # Normalize to [-1, 1]
-#   return image
-  
-  
+
+def to_tensor(example):
+  '''
+  One feature in the TFRecord dataset is turned into a tensor for training
+  Can't work with TFRecords directly!
+  '''
+  features = tf.parse_single_example(
+      example,
+      features={'train/coord2d': tf.FixedLenFeature([], tf.float32),
+                'train/coord3d': tf.FixedLenFeature([], tf.float32)})
+
+  # NOTE: No need to cast these features, as they are already `tf.float32` values.
+  return features['train/coord2d'], features['train/coord3d']
+  # feature_description = {
+  #   'image': tf.io.FixedLenFeature([], tf.string),
+  # }
+  # example = tf.io.parse_single_example(record, feature_description)
+  # # Decode the feature into a tensor
+  # image = tf.io.decode_jpeg(example['image_raw'])
+  # return image
   
 #https://www.tensorflow.org/tutorials/generative/dcgan
 #https://github.com/asahi417/CycleGAN/blob/master/cycle_gan/cycle_gan.py
@@ -166,9 +169,7 @@ def train(): #Run to train set
   print("INITIALIZING SETUP...")
   print("Creating dataset...")
   dataset = tf.data.TFRecordDataset(TF_RECORD_PATH, compression_type='GZIP') #hopefully builds dataset from output.tfrecord
-  # dataset = dataset.map(_parse_function)
-  # num_samples = tf.data.experimental.cardinality(dataset).numpy()
-  # print("Total number of samples in the dataset:", num_samples) 
+  dataset = dataset.map(to_tensor)
   # dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
   
   print("Tensorflow dataset:", dataset)
@@ -199,6 +200,9 @@ def train(): #Run to train set
   
   
   
+  print("test")
+  for batch in dataset:
+    print("x = {x:.4f},  y = {y:.4f}".format(**batch))
   
   
   
@@ -206,15 +210,13 @@ def train(): #Run to train set
   
   
   
-  
-  
-  print("Beginning training loop.", end="\r")
-  for epoch in range(EPOCHS):
-    start = time.time()
+  # print("Beginning training loop.", end="\r")
+  # for epoch in range(EPOCHS):
+  #   start = time.time()
 
-    for image_batch in dataset:
-      print("iterating.")
-      print("current batch:", image_batch)
+  #   for image_batch in dataset:
+  #     print("iterating.")
+  #     print("current batch:", image_batch)
   #     train_step(image_batch, generator, discriminator, generator_optimizer, discriminator_optimizer)
 
   #   # Produce images for the GIF as you go

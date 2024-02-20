@@ -196,7 +196,6 @@ def make_training_set():
                 feature = { #make 
                     'image': Feature(bytes_list=BytesList(value=[encode_jpeg(img).numpy()])) #as bytes list
                 }
-
                 example = Example(features=Features(feature=feature))
                 writer.write(example.SerializeToString())
                 count += 1
