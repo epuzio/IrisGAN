@@ -13,6 +13,8 @@ print(dataset)
 dataset = dataset.shuffle(60).batch(10)
 print("Tensorflow dataset:", dataset)
 
+
+
 # # Open the TFRecord file
 # dataset = tf.data.TFRecordDataset(TF_RECORD_PATH, compression_type='GZIP')
 

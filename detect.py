@@ -1,23 +1,21 @@
 import cv2, sys, os, math, glob, time, zipfile
-from tensorflow.image import resize
-from tensorflow.io import TFRecordWriter, encode_jpeg
-from tensorflow.train import Example, Features, Feature, BytesList
+
 
 # To fix:
 # 1) Output images should be numpy arrays, 192x256? Look at ArtGAN training set for correct format
-#   # This is a change that can come after gan.py is working...
+#   # This is a change that can come after gan.py is working... (DONE - TFRecord Binary, not numpy array)
 # 2) Should be able to specify input/output files from command line, with default as input_videos and output_training_set
     # or as global variables
 # 3) Center faces in output (DONE)
     # Figure out cropping (DONE)
-    # Downsize output images by 2x
+    # Downsize output images by 2x (DONE)
     # Add user control for cropping dimensions from the command line
 # 4) It says invalid file path at the end
 # 5) Generally make the code cleaner and more readable
 # 6) TFRecord support >:) (DONE?)
     # Tensorflow takes ages to import - might be worth moving make_training_set to a separate file
 # 7) Make some global variables for names of files and directories
-# 8 (not really)) Chaser is a good album :~)
+# 8 Put the classifier detection in a for loop
 
 def get_title(file_path): 
     '''
@@ -114,6 +112,7 @@ def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
                 break
             gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
+
             #Left Profile:
             left_profile = left_profile_classifier.detectMultiScale(
                 gray_image, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
@@ -122,7 +121,7 @@ def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
                 for (x, y, w, h) in left_profile:
                     if crop_frames:
                         frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                        # resize(frame, size=(192, 256)) #resize???
+                        frame = cv2.resize(frame, (192, 256)) #resize???
                     cv2.imwrite(image_filename, frame)
             
             #Right profile
@@ -133,7 +132,7 @@ def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
                 for (x, y, w, h) in right_profile:
                     if crop_frames:
                         frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                        # resize(frame, size=(192, 256)) #resize by x2
+                        frame = cv2.resize(frame, (192, 256)) #resize by x2
                     cv2.imwrite(image_filename, frame)
             
             #Front face    
@@ -144,7 +143,7 @@ def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
                 for (x, y, w, h) in front_face:
                     if crop_frames:
                         frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                        # resize(frame, size=(192, 256)) #resize by x2
+                        frame = cv2.resize(frame, (192, 256)) #resize by x2
                     cv2.imwrite(image_filename, frame)
         fc += 1
         print("Outputting Frame:", fc, end="\r")
@@ -176,8 +175,12 @@ def zip_files():
 def make_training_set():
     '''
     Save all images in output_images to a .tfrecord file - this is an efficient way 
-    to store a dataset for the GAN
+    to store a dataset for the GAN. Tensorflow is imported here as it takes a long time to import
+    and should only be imported when necessary.
     '''
+    from tensorflow.io import TFRecordWriter, encode_jpeg
+    from tensorflow.train import Example, Features, Feature, BytesList
+    
     
     tfrecord_file_path = 'output.tfrecord'
     

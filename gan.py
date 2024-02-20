@@ -1,6 +1,8 @@
 #rectGAN: https://github.com/xjdeng/RectGAN/blob/master/aspect_ratio.py
 #artGAN: https://github.com/cs-chan/ArtGAN/blob/master/ArtGAN/Genre128GANAE.py
 #super helpful tensorflow tutorial: https://www.tensorflow.org/tutorials/generative/dcgan
+#Another very helpful tensorflow tutorial: https://www.tensorflow.org/tutorials/generative/cyclegan
+#incredibly straightforward explanation of what a GAN is: https://towardsdatascience.com/cyclegan-learning-to-translate-images-without-paired-training-data-5b4e93862c8d
 
 # To fix:
 # 1) Clean up code 
@@ -10,6 +12,7 @@
 #    adjusting for best performance. I do not understand how layers work but most GANs seem to follow
 #    Conv2D -> LeakyReLU -> Batchnorm for a few rounds of up/downscaling?
 # 4) Use SGD!
+# 5) Cropping is such a non-issue for right now, should stick to nxn images until this works.
 # TFRecord: https://pyimagesearch.com/2022/08/08/introduction-to-tfrecords/
 
 #imports
@@ -31,7 +34,8 @@ Arguments for GAN
 '''
 EPOCHS = 3
 EXAMPLES_TO_GENERATE = 6
-IMAGE_DIMENSIONS = [192, 256, 1]
+IMAGE_HEIGHT = 192
+IMAGE_WIDTH = 256
 BATCH_SIZE = 4
 BUFFER_SIZE = 80 #should be around the size of the dataset! Shouldn't be hardcoded
 TF_RECORD_PATH = "output.tfrecord"
@@ -144,7 +148,7 @@ def generate_and_save_images(model, epoch, test_input):
 def decode_image(image):
     image = tf.image.decode_jpeg(image, channels=3)
     image = (tf.cast(image, tf.float32) / 127.5) - 1
-    image = tf.reshape(image, [IMAGE_DIMENSIONS, 3])
+    image = tf.reshape(image, [IMAGE_HEIGHT, IMAGE_WIDTH, 3])
     return image
 
 #decode
@@ -197,11 +201,6 @@ def train(): #Run to train set
   
   
   print("test")
-  for batch in dataset:
-    print("x = {x:.4f},  y = {y:.4f}".format(**batch))
-  
-  
-  
   
   
   
