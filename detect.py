@@ -39,40 +39,51 @@ def process_videos():
     else:
         print("Invalid file path")
 
-def crop_bounds(x, y, dim_x, dim_y, frame): #clean up later
+def crop_bounds(x, y, w, h, dim_x, dim_y, frame): #why did this algorithm take me so long.... 
     '''
     Helper function to crop frames around faces to dimensions specified by dim_x, dim_y.
     Extra logic added so that the crop stays within the bounds of the original image.
+    Dim_x and Dim_y are the x and y dimensions of the cropped frame
     '''
-    center_x, center_y = x + (dim_x // 2), y + (dim_y // 2) 
-    x_start = max(0, center_x - dim_x)
-    y_start = max(0, center_y - dim_y)
-    x_end = min(frame.shape[1], center_x + dim_x)
-    y_end = min(frame.shape[0], center_y + dim_y)
+    # print("Frame:", frame.shape)
+    # print("center:", x + (dim_x // 2), y + (dim_y // 2))
     
-    cropped_width = x_end - x_start
-    cropped_height = y_end - y_start
-    if cropped_width < dim_x * 2:
-        if x_start == 0:
-            x_end = min(frame.shape[1], x_end + dim_x * 2 - cropped_width)
-        else:
-            x_start = max(0, x_start - (dim_x * 2 - cropped_width))
-    if cropped_height < dim_y * 2:
-        if y_start == 0:
-            y_end = min(frame.shape[0], y_end + dim_y * 2 - cropped_height)
-        else:
-            y_start = max(0, y_start - (dim_y * 2 - cropped_height))
+    center_x =  x + (w//2)
+    center_y =  y + (h//2)
+    top_x = center_x - (dim_x // 2)
+    top_y = center_y - (dim_y // 2)
+    bottom_x = center_x + (dim_x // 2)
+    bottom_y = center_y + (dim_y // 2)
+    # print("top:", top_x, top_y, "bottom:", bottom_x, bottom_y)
+    if top_x < 0:
+        bottom_x -= top_x
+        top_x = 0
+    if top_y < 0:
+        bottom_y -= top_y
+        top_y = 0
     
-    frame = frame[y_start:y_end, x_start:x_end]
-    print("Cropped width:", cropped_width, "Cropped height:", cropped_height)
-    print("Cropped Frame:", frame.shape)
-    return frame
-
-def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
+    # print("top:", top_x, top_y, "bottom:", bottom_x, bottom_y)
+    if bottom_x > frame.shape[1]:
+        top_x -= (bottom_x - frame.shape[1])
+        bottom_x = frame.shape[1]
+        
+    if bottom_y > frame.shape[0]:
+        top_y -= (bottom_y - frame.shape[0])
+        bottom_y = frame.shape[0]
+    # print("top:", top_x, top_y, "bottom:", bottom_x, bottom_y)
+        
+    cropped_frame = frame[top_y:bottom_y, top_x:bottom_x]
+    print("Cropped Frame:", cropped_frame.shape)
+    return cropped_frame
+        
+def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
     '''
     Uses cv2 CascadeClassifier to find all frames containing human faces,
-    frames are output to local output_images folder
+    Frames are output to local output_images folder
     '''
+
+    
+    
     video = cv2.VideoCapture(file_path)
     fps = math.ceil(video.get(cv2.CAP_PROP_FPS))
     kps = 1 #number of captures per second of film - 1 is every frame, 2 is every other frame, etc
@@ -80,6 +91,13 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
     if not video.isOpened():
         print("Error opening video file")
         exit()
+        
+    print("Video Dimensions:", video.get(cv2.CAP_PROP_FRAME_WIDTH), "x" , video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    
+    if(dim_x > video.get(cv2.CAP_PROP_FRAME_WIDTH) or dim_y > video.get(cv2.CAP_PROP_FRAME_HEIGHT)): #:pensive:
+        print("Error: cropped dimensions exceed the dimensions of the original video.")
+        exit()
+    
 
     front_face_classifier = cv2.CascadeClassifier(
         cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
@@ -109,9 +127,9 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
                 gray_image, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
             )
             if len(left_profile) > 0:
-                for (x, y, _, _) in left_profile:
+                for (x, y, w, h) in left_profile:
                     if crop_frames:
-                        frame = crop_bounds(x, y, dim_x, dim_y, frame)
+                        frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
                         # resize(frame, size=(192, 256)) #resize???
                     cv2.imwrite(image_filename, frame)
             
@@ -120,9 +138,9 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
                 cv2.flip(gray_image, 1), scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
             )
             if len(right_profile) > 0:
-                for (x, y, _, _) in right_profile:
+                for (x, y, w, h) in right_profile:
                     if crop_frames:
-                        frame = crop_bounds(x, y, dim_x, dim_y, frame)
+                        frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
                         # resize(frame, size=(192, 256)) #resize by x2
                     cv2.imwrite(image_filename, frame)
             
@@ -131,9 +149,9 @@ def detect_faces(file_path, crop_frames = True, dim_x = 384, dim_y = 512):
                 gray_image, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
             )
             if len(front_face) > 0:
-                for (x, y, _, _) in front_face:
+                for (x, y, w, h) in front_face:
                     if crop_frames:
-                        frame = crop_bounds(x, y, dim_x, dim_y, frame)
+                        frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
                         # resize(frame, size=(192, 256)) #resize by x2
                     cv2.imwrite(image_filename, frame)
         fc += 1
@@ -185,7 +203,7 @@ def make_training_set():
                     }
                     
                     example = Example(features=Features(feature=feature))
-                    writer.write(example.SerializeToString())
+                    writer.write(example.SerializeToString()) #SerializeToString turns the example into a binary string
                     count += 1
         print(f"TFRecord file created from zip: {tfrecord_file_path}, {count} images written.")
         
@@ -194,10 +212,11 @@ def make_training_set():
             count = 0
             for img in os.listdir("output_images"):
                 feature = { #make 
-                    'image': Feature(bytes_list=BytesList(value=[encode_jpeg(img).numpy()])) #as bytes list
+                    'image': Feature(bytes_list=BytesList(value=[encode_jpeg(img).numpy()]))
+                    # 'image': Feature(bytes_list=BytesList(value=[encode_jpeg(img).numpy()])) #as bytes list
                 }
                 example = Example(features=Features(feature=feature))
-                writer.write(example.SerializeToString())
+                writer.write(example.SerializeToString()) #turn to byteslist!
                 count += 1
         print(f"TFRecord file created from folder: {tfrecord_file_path}, {count} images written.")
         

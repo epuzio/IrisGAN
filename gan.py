@@ -31,7 +31,7 @@ Arguments for GAN
 '''
 EPOCHS = 3
 EXAMPLES_TO_GENERATE = 6
-IMAGE_DIMENSIONS = (192, 256, 1)
+IMAGE_DIMENSIONS = [192, 256, 1]
 BATCH_SIZE = 4
 BUFFER_SIZE = 80 #should be around the size of the dataset! Shouldn't be hardcoded
 TF_RECORD_PATH = "output.tfrecord"
@@ -142,26 +142,26 @@ def generate_and_save_images(model, epoch, test_input):
   plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
   plt.show()
   
+  
+  
+  
+#https://www.kaggle.com/code/drzhuzhe/monet-cyclegan-tutorial  
+def decode_image(image):
+    image = tf.image.decode_jpeg(image, channels=3)
+    image = (tf.cast(image, tf.float32) / 127.5) - 1
+    image = tf.reshape(image, [IMAGE_DIMENSIONS, 3])
+    return image
 
-def to_tensor(example):
-  '''
-  One feature in the TFRecord dataset is turned into a tensor for training
-  Can't work with TFRecords directly!
-  '''
-  features = tf.parse_single_example(
-      example,
-      features={'train/coord2d': tf.FixedLenFeature([], tf.float32),
-                'train/coord3d': tf.FixedLenFeature([], tf.float32)})
+#decode
+#https://www.kaggle.com/code/drzhuzhe/monet-cyclegan-tutorial
+def read_tfrecord(example):
+    tfrecord_format = {
+        "image": tf.io.FixedLenFeature([], tf.string)
+    }
+    example = tf.io.parse_single_example(example, tfrecord_format)
+    image = decode_image(example['image'])
+    return image
 
-  # NOTE: No need to cast these features, as they are already `tf.float32` values.
-  return features['train/coord2d'], features['train/coord3d']
-  # feature_description = {
-  #   'image': tf.io.FixedLenFeature([], tf.string),
-  # }
-  # example = tf.io.parse_single_example(record, feature_description)
-  # # Decode the feature into a tensor
-  # image = tf.io.decode_jpeg(example['image_raw'])
-  # return image
   
 #https://www.tensorflow.org/tutorials/generative/dcgan
 #https://github.com/asahi417/CycleGAN/blob/master/cycle_gan/cycle_gan.py
@@ -169,8 +169,10 @@ def train(): #Run to train set
   print("INITIALIZING SETUP...")
   print("Creating dataset...")
   dataset = tf.data.TFRecordDataset(TF_RECORD_PATH, compression_type='GZIP') #hopefully builds dataset from output.tfrecord
-  dataset = dataset.map(to_tensor)
+  dataset = dataset.map(read_tfrecord)
   # dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
+  # for batch in dataset.map(decode):
+  #   print("x = {x:.4f},  y = {y:.4f}".format(**batch))
   
   print("Tensorflow dataset:", dataset)
   
