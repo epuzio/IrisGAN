@@ -145,19 +145,37 @@ def train_step(image_batch, generator, discriminator, generator_optimizer, discr
 #https://www.tensorflow.org/tutorials/generative/dcgan
 def generate_and_save_images(model, epoch, test_input):
   predictions = model(test_input, training=False)
-  fig = plt.figure(figsize=(4, 4))
-
   for i in range(predictions.shape[0]):
-      plt.subplot(4, 4, i+1)
-      plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
-      plt.axis('off')
+    plt.imshow(predictions.shape[i, :, :, 0] * 127.5 + 127.5)
+    plt.axis('off')
+    plt.savefig(f"GAN_output_images/img{i}/image{i}_epoch_{epoch:04d}.png")
+    plt.clf()  # Clear the current figure to prevent overlapping plots
+    
+  ##Works, but not what I want:  
+  # predictions = model(test_input, training=False)
+  # fig = plt.figure(figsize=(4, 4))
 
-  plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
-  plt.show()
+  # for i in range(predictions.shape[0]):
+  #     plt.subplot(4, 4, i+1)
+  #     plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5)
+  #     plt.axis('off')
+
+  # plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
+  # plt.show()
   
   
-  
-  
+def make_output_directories(examples_to_generate):
+  '''
+  Make one image output directory for each example to generate.
+  This saves all work-in-progress images to each directory.
+  '''
+  if not os.path.exists('GAN_output_images'):
+    os.makedirs('GAN_output_images')
+  for i in range(examples_to_generate):
+    new_dir = 'GAN_output_images/img' + str(i)
+    if not os.path.exists(new_dir):
+      os.makedirs(new_dir)
+
 #https://www.kaggle.com/code/drzhuzhe/monet-cyclegan-tutorial  
 #decodes into tensor
 def decode_image(image):
@@ -219,6 +237,9 @@ def train():
   checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer, 
                                   discriminator_optimizer=discriminator_optimizer, 
                                   generator=generator, discriminator=discriminator)
+  
+  print("Creating directories for output images...")
+  make_output_directories(EXAMPLES_TO_GENERATE)
   print("SETUP COMPLETE.\n\n")
   
 
@@ -228,28 +249,28 @@ def train():
     print("Epoch:", epoch)
     for image_batch in train_dataset:
       print("Iterating for image batch...")
-      print("Image batch shape:::", image_batch.get_shape())
       train_step(image_batch, generator, discriminator, generator_optimizer, discriminator_optimizer)
 
-  #   print("Epoch:", epoch)
-  #   # Produce images for the GIF as you go
-  #   display.clear_output(wait=True)
-  #   generate_and_save_images(generator,
-  #                            epoch + 1,
-  #                            seed)
+    print("Saving images...")
+    # Produce images for the GIF as you go
+    display.clear_output(wait=True)
+    generate_and_save_images(generator,
+                             epoch + 1,
+                             seed)
 
-  #   # Save the model every 15 epochs
-  #   if (epoch + 1) % 2 == 0:
-  #     checkpoint.save(file_prefix = checkpoint_prefix)
-  #     print("Checkpoint saved successfully to file:", checkpoint_dir)
+    # Save the model every 15 epochs
+    print("Saving checkpoint of model...")
+    if (epoch + 1) % 2 == 0:
+      checkpoint.save(file_prefix = checkpoint_prefix)
+      print("Checkpoint saved successfully to file:", checkpoint_dir)
 
-  #   print ('Time for epoch {} is {} sec\n'.format(epoch + 1, time.time()-start))
+    print ('Time for epoch {} is {} sec\n'.format(epoch + 1, time.time()-start))
 
-  # # Generate after the final epoch
-  # display.clear_output(wait=True)
-  # generate_and_save_images(generator,
-  #                          EPOCHS,
-  #                          seed)
+  # Generate after the final epoch
+  display.clear_output(wait=True)
+  generate_and_save_images(generator,
+                           EPOCHS,
+                           seed)
   
 def main():  
   train()
