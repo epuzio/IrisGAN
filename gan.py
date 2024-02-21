@@ -3,6 +3,7 @@
 #super helpful tensorflow tutorial: https://www.tensorflow.org/tutorials/generative/dcgan
 #Another very helpful tensorflow tutorial: https://www.tensorflow.org/tutorials/generative/cyclegan
 #incredibly straightforward explanation of what a GAN is: https://towardsdatascience.com/cyclegan-learning-to-translate-images-without-paired-training-data-5b4e93862c8d
+# Tips and tricks: https://medium.com/intel-student-ambassadors/tips-on-training-your-gans-faster-and-achieve-better-results-9200354acaa5#:~:text=Batch%20Size%3A&text=While%20training%20your%20GAN%20use,a%20negative%20effect%20on%20training.
 
 # To fix:
 # 1) Clean up code 
@@ -13,6 +14,7 @@
 #    Conv2D -> LeakyReLU -> Batchnorm for a few rounds of up/downscaling?
 # 4) Use SGD!
 # 5) Cropping is such a non-issue for right now, should stick to nxn images until this works.
+# 6) Batch size = 1 for CycleGAN but 256 for DCGAN. 
 # TFRecord: https://pyimagesearch.com/2022/08/08/introduction-to-tfrecords/
 
 #imports
@@ -36,7 +38,7 @@ EPOCHS = 3
 EXAMPLES_TO_GENERATE = 6
 IMAGE_HEIGHT = 192
 IMAGE_WIDTH = 256
-BATCH_SIZE = 4
+BATCH_SIZE = 8 #From tips and tricks article
 BUFFER_SIZE = 80 #should be around the size of the dataset! Shouldn't be hardcoded
 TF_RECORD_PATH = "output.tfrecord"
 
@@ -146,34 +148,43 @@ def generate_and_save_images(model, epoch, test_input):
 #https://www.kaggle.com/code/drzhuzhe/monet-cyclegan-tutorial  
 #decodes into tensor
 def decode_image(image):
-    image = tf.image.decode_jpeg(image, channels=3)
-    image = (tf.cast(image, tf.float32) / 127.5) - 1
-    image = tf.reshape(image, [IMAGE_HEIGHT, IMAGE_WIDTH, 3])
-    return image
+  '''
+  Map the image to the [-1, 1] range
+  '''
+  image = tf.image.decode_jpeg(image, channels=3)
+  image = tf.reshape(image, [IMAGE_HEIGHT, IMAGE_WIDTH, 3])
+  image = (tf.cast(image, tf.float32) / 127.5) - 1 #Normalize images to [-1, 1]
+  return image
+  # return tf.data.Dataset.from_tensor_slices(image)
 
 #decode
 #https://www.kaggle.com/code/drzhuzhe/monet-cyclegan-tutorial
 def read_tfrecord(example):
-    tfrecord_format = {
-      "image": tf.io.FixedLenFeature([], tf.string)
-    }
-    example = tf.io.parse_single_example(example, tfrecord_format)
-    image = decode_image(example['image'])
-    return image
+  '''
+  Decode the image from the tfrecord file using decode_image
+  '''
+  tfrecord_format = {
+    "image": tf.io.FixedLenFeature([], tf.string)
+  }
+  example = tf.io.parse_single_example(example, tfrecord_format)
+  image = decode_image(example['image'])
+  return image
   
 #https://www.tensorflow.org/tutorials/generative/dcgan
 #https://github.com/asahi417/CycleGAN/blob/master/cycle_gan/cycle_gan.py
-def train(): #Run to train set
-  print("INITIALIZING SETUP...")
-  print("Creating dataset...")
-  dataset = tf.data.TFRecordDataset(TF_RECORD_PATH, compression_type='GZIP') #hopefully builds dataset from output.tfrecord
-  dataset = dataset.map(read_tfrecord)
-  # dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
-  # for batch in dataset.map(decode):
-  #   print("x = {x:.4f},  y = {y:.4f}".format(**batch))
+def train(): 
+  #Set up dataset
+  print("BEGINNING SETUP...")
+  print("Creating dataset from TFRecord...")
+  dataset = tf.data.TFRecordDataset(TF_RECORD_PATH) #Do not use compression, https://github.com/shahrukhqasim/TIES-2.0/issues/14
+  dataset = dataset.map(read_tfrecord) #Unpacks from string to a float32 with correct dims under shape
   
-  print("Tensorflow dataset:", dataset)
+  print("Shuffling dataset, creating batches...")
+  train_dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
+  print("Dataset:", dataset)
+  print("Train dataset:", train_dataset)
   
+  #Create generator and discriminator models:
   print("Creating generator model...")
   generator = make_generator()
   
@@ -195,43 +206,39 @@ def train(): #Run to train set
   checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer, 
                                   discriminator_optimizer=discriminator_optimizer, 
                                   generator=generator, discriminator=discriminator)
-  
   print("SETUP COMPLETE.\n\n")
   
   
   
-  print("test")
   
   
-  
-  
-  # print("Beginning training loop.", end="\r")
-  # for epoch in range(EPOCHS):
-  #   start = time.time()
+  print("Beginning training loop...")
+  for epoch in range(EPOCHS):
+    start = time.time()
+    print("Epoch:", epoch)
+    for image_batch in train_dataset:
+      print("Iterating for image batch...")
+      train_step(image_batch, generator, discriminator, generator_optimizer, discriminator_optimizer)
 
-  #   for image_batch in dataset:
-  #     print("iterating.")
-  #     print("current batch:", image_batch)
-  #     train_step(image_batch, generator, discriminator, generator_optimizer, discriminator_optimizer)
+    print("Epoch:", epoch)
+    # Produce images for the GIF as you go
+    display.clear_output(wait=True)
+    generate_and_save_images(generator,
+                             epoch + 1,
+                             seed)
 
-  #   # Produce images for the GIF as you go
-  #   display.clear_output(wait=True)
-  #   generate_and_save_images(generator,
-  #                            epoch + 1,
-  #                            seed)
+    # Save the model every 15 epochs
+    if (epoch + 1) % 2 == 0:
+      checkpoint.save(file_prefix = checkpoint_prefix)
+      print("Checkpoint saved successfully to file:", checkpoint_dir)
 
-  #   # Save the model every 15 epochs
-  #   if (epoch + 1) % 2 == 0:
-  #     checkpoint.save(file_prefix = checkpoint_prefix)
-  #     print("Checkpoint saved successfully to file:", checkpoint_dir)
+    print ('Time for epoch {} is {} sec\n'.format(epoch + 1, time.time()-start))
 
-  #   print ('Time for epoch {} is {} sec\n'.format(epoch + 1, time.time()-start))
-
-  # # Generate after the final epoch
-  # display.clear_output(wait=True)
-  # generate_and_save_images(generator,
-  #                          EPOCHS,
-  #                          seed)
+  # Generate after the final epoch
+  display.clear_output(wait=True)
+  generate_and_save_images(generator,
+                           EPOCHS,
+                           seed)
   
 def main():  
   train()

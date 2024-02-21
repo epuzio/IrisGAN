@@ -69,7 +69,8 @@ def crop_bounds(x, y, w, h, dim_x, dim_y, frame): #why did this algorithm take m
 def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
     '''
     Uses cv2 CascadeClassifier to find all frames containing human faces,
-    Frames are output to local output_images folder
+    Frames are output to local output_images folder. All images must be the same dimensions
+    for the GAN to work properly.
     '''
 
     
@@ -178,7 +179,7 @@ def make_training_set():
     to store a dataset for the GAN. Tensorflow is imported here as it takes a long time to import
     and should only be imported when necessary.
     '''
-    from tensorflow.io import TFRecordWriter, encode_jpeg
+    from tensorflow.io import TFRecordWriter, encode_jpeg #might be worth it to move make_training_set + zip to a separate file
     from tensorflow.train import Example, Features, Feature, BytesList
     
     
