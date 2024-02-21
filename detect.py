@@ -66,7 +66,8 @@ def crop_bounds(x, y, w, h, dim_x, dim_y, frame): #why did this algorithm take m
     cropped_frame = frame[top_y:bottom_y, top_x:bottom_x]
     return cropped_frame
         
-def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
+# def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
+def detect_faces(file_path, crop_frames = True, dim_x = 256, dim_y = 256):
     '''
     Uses cv2 CascadeClassifier to find all frames containing human faces,
     Frames are output to local output_images folder. All images must be the same dimensions
@@ -122,7 +123,7 @@ def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
                 for (x, y, w, h) in left_profile:
                     if crop_frames:
                         frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                        frame = cv2.resize(frame, (192, 256)) #resize???
+                        # frame = cv2.resize(frame, (192, 256)) #resize???
                     cv2.imwrite(image_filename, frame)
             
             #Right profile
@@ -133,7 +134,7 @@ def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
                 for (x, y, w, h) in right_profile:
                     if crop_frames:
                         frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                        frame = cv2.resize(frame, (192, 256)) #resize by x2
+                        # frame = cv2.resize(frame, (192, 256)) #resize by x2
                     cv2.imwrite(image_filename, frame)
             
             #Front face    
@@ -144,7 +145,7 @@ def detect_faces(file_path, crop_frames = True, dim_x = 288, dim_y = 384):
                 for (x, y, w, h) in front_face:
                     if crop_frames:
                         frame = crop_bounds(x, y, w, h, dim_x, dim_y, frame)
-                        frame = cv2.resize(frame, (192, 256)) #resize by x2
+                        # frame = cv2.resize(frame, (192, 256)) #resize by x2
                     cv2.imwrite(image_filename, frame)
         fc += 1
         print("Outputting Frame:", fc, end="\r")
@@ -204,6 +205,7 @@ def make_training_set():
         print(f"TFRecord file created from zip: {tfrecord_file_path}, {count} images written.")
         
     else: #There's no .zip file for the training set, make a .tfrecord file from output_images
+        #Doesn't work right now.... awesome
         with TFRecordWriter(tfrecord_file_path) as writer:
             count = 0
             for img in os.listdir("output_images"):
@@ -236,7 +238,7 @@ def main():
                 print("To clean all files: python3 detect.py clean")
                 print("To clean files by title: python3 detect.py clean title")
                 print("Make zip file from image set: python3 detect.py zip")
-                print("Make tfds (for GAN): python3 detect.py tfds")
+                print("Make tfds (for GAN): python3 detect.py tfds") 
 
 if __name__ == "__main__":
     main()
