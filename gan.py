@@ -79,14 +79,14 @@ def make_generator():
   model.add(layers.Dense(16*16*256, input_shape=(100,), use_bias=False))
   model.add(layers.LeakyReLU(alpha=0.2))
   model.add(layers.Reshape((16, 16, 256)))
-  # assert model.output_shape == (None, 16, 16, 256)  
 
   add_generator_layer(model, 256, (5, 5), strides[0])
   add_generator_layer(model, 128, (5, 5), strides[1])
   add_generator_layer(model, 64, (5, 5), strides[1])
   add_generator_layer(model, 32, (5, 5), strides[1])
   add_generator_layer(model, 3, (5, 5), strides[2]) #3-channel output?
-  # model.add(layers.Conv2DTranspose(, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='sigmoid')) #change to 3-channel output?
+  # model.add(layers.Conv2DTranspose(3,kernel_size=3,strides=2,padding='same',use_bias=False,kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.02)))
+  model.add(layers.Activation('tanh')) # Resulting shape = (64,64,3)
 
   return model
 
@@ -101,9 +101,14 @@ def make_discriminator(): #same tutorial, https://github.com/nicknochnack/GANBas
   model = tf.keras.Sequential()
   add_discriminator_layer(model, 64, (3, 3), strides[2])
   add_discriminator_layer(model, 128, (3, 3), strides[1])
+  add_discriminator_layer(model, 256, (5, 5), strides[1])
+  add_discriminator_layer(model, 512, (5, 5), strides[1])
+  add_discriminator_layer(model, 1, (4, 4), strides[0])
   model.add(layers.Dropout(0.25))
   model.add(layers.Flatten())
-  model.add(layers.Dense(3, activation='sigmoid')) #3 channel output
+  model.add(layers.Activation('sigmoid'))
+  # model.add(layers.Dense(1)) #1 channel output
+  # model.add(layers.Dense(3, activation='sigmoid')) #3 channel output
 
   return model
 
@@ -145,23 +150,11 @@ def train_step(image_batch, generator, discriminator, generator_optimizer, discr
 #https://www.tensorflow.org/tutorials/generative/dcgan
 def generate_and_save_images(model, epoch, test_input):
   predictions = model(test_input, training=False)
-  for i in range(predictions.shape[0]):
-    plt.imshow(predictions.shape[i, :, :, 0] * 127.5 + 127.5)
+  for i in range(predictions.shape[0]): #for each image in the batch
+    plt.imshow(predictions[i, :, :, 0] * 0.5 + 0.5)
     plt.axis('off')
     plt.savefig(f"GAN_output_images/img{i}/image{i}_epoch_{epoch:04d}.png")
     plt.clf()  # Clear the current figure to prevent overlapping plots
-    
-  ##Works, but not what I want:  
-  # predictions = model(test_input, training=False)
-  # fig = plt.figure(figsize=(4, 4))
-
-  # for i in range(predictions.shape[0]):
-  #     plt.subplot(4, 4, i+1)
-  #     plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5)
-  #     plt.axis('off')
-
-  # plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
-  # plt.show()
   
   
 def make_output_directories(examples_to_generate):
@@ -234,9 +227,9 @@ def train():
   
   checkpoint_prefix = os.path.join(checkpoint_dir, "checkpt")
   
-  checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer, 
-                                  discriminator_optimizer=discriminator_optimizer, 
-                                  generator=generator, discriminator=discriminator)
+  # checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer, 
+  #                                 discriminator_optimizer=discriminator_optimizer, 
+  #                                 generator=generator, discriminator=discriminator)
   
   print("Creating directories for output images...")
   make_output_directories(EXAMPLES_TO_GENERATE)
@@ -259,10 +252,10 @@ def train():
                              seed)
 
     # Save the model every 15 epochs
-    print("Saving checkpoint of model...")
-    if (epoch + 1) % 2 == 0:
-      checkpoint.save(file_prefix = checkpoint_prefix)
-      print("Checkpoint saved successfully to file:", checkpoint_dir)
+    # print("Saving checkpoint of model...")
+    # if (epoch + 1) % 2 == 0:
+    #   checkpoint.save(file_prefix = checkpoint_prefix)
+    #   print("Checkpoint saved successfully to file:", checkpoint_dir)
 
     print ('Time for epoch {} is {} sec\n'.format(epoch + 1, time.time()-start))
 
@@ -277,18 +270,3 @@ def main():
 
 if __name__ == "__main__":
   main()
-
-  
-  
-  
-  
-  # #Test from DCGAN tutorial:
-# #generator: works for nxn
-# noise = tf.random.normal([1, 100])
-# generated_image = generator(noise, training=False)
-# plt.imshow(generated_image[0, :, :, 0], cmap='gray')
-# plt.show()
-
-# #discriminator:
-# decision = discriminator(generated_image)
-# print (decision)
