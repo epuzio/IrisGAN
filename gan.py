@@ -28,18 +28,14 @@ from matplotlib import pyplot as plt
 import os
 import time
 from IPython import display
-# from sklearn.model_selection import train_test_split
+import subprocess
 
 
-'''
-Arguments for GAN
-'''
-EPOCHS = 3
+## Arguments for GAN
+EPOCHS = 10
 EXAMPLES_TO_GENERATE = 6
-# IMAGE_HEIGHT = 192
-# IMAGE_WIDTH = 256
-IMAGE_HEIGHT = 256 #for now
-IMAGE_WIDTH = 256 #for now
+IMAGE_HEIGHT = 256
+IMAGE_WIDTH = 256 #192?
 BATCH_SIZE = 8 #From tips and tricks article
 BUFFER_SIZE = 80 #should be around the size of the dataset! Shouldn't be hardcoded
 TF_RECORD_PATH = "output.tfrecord"
@@ -53,11 +49,6 @@ alpha_Discriminator = 0.2
 alpha_Generator = 0.2
 momentum_BatchNormalization = 0.8 #rectgan suggests 0.3
 
-
-
-
-
-
 ################# Building Generator #################
 
 def add_generator_layer(model, num_filters, kernel, num_strides): #from rectgan
@@ -68,48 +59,46 @@ def add_generator_layer(model, num_filters, kernel, num_strides): #from rectgan
   model.add(layers.BatchNormalization(momentum=momentum_BatchNormalization))
   model.add(layers.LeakyReLU())
 
-# NEW TUTORIAL: https://www.tensorflow.org/tutorials/generative/dcgan
-# https://machinelearningmastery.com/semi-supervised-generative-adversarial-network/
 def make_generator():
   '''
-  Create noise for the generator. Experiment with the number of layers!
+  Creating noise for the generator.
   '''
   model = tf.keras.Sequential() #add layers to generator model
-  # model.add(layers.Dense(7*7*256, input_dim=128, use_bias=False))
   model.add(layers.Dense(16*16*256, input_shape=(100,), use_bias=False))
   model.add(layers.LeakyReLU(alpha=0.2))
   model.add(layers.Reshape((16, 16, 256)))
 
-  add_generator_layer(model, 256, (5, 5), strides[0])
-  add_generator_layer(model, 128, (5, 5), strides[1])
-  add_generator_layer(model, 64, (5, 5), strides[1])
-  add_generator_layer(model, 32, (5, 5), strides[1])
-  add_generator_layer(model, 3, (5, 5), strides[2]) #3-channel output?
-  # model.add(layers.Conv2DTranspose(3,kernel_size=3,strides=2,padding='same',use_bias=False,kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.02)))
-  model.add(layers.Activation('tanh')) # Resulting shape = (64,64,3)
+  add_generator_layer(model, 256, (5, 5), num_strides=(2, 2))
+  add_generator_layer(model, 128, (5, 5), num_strides=(2, 2))
+  add_generator_layer(model, 64, (5, 5), num_strides=(2, 2))
+  add_generator_layer(model, 32, (5, 5), num_strides=(2, 2))
+  model.add(layers.Conv2DTranspose(3,kernel_size=3,strides=2,padding='same',use_bias=False,kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.02)))
+  model.add(layers.Activation('tanh')) # Final shape = (64,64,3)
 
   return model
 
 #https://machinelearningmastery.com/semi-supervised-generative-adversarial-network/
 def add_discriminator_layer(model, filters, kernel, num_strides): #from rectgan/nets.py and https://github.com/vmvargas/GAN-for-Nuclei-Detection/blob/master/model-MNIST-cross-validation.py
-  # model.add(layers.BatchNormalization(momentum=momentum_BatchNormalization))
-  model.add(layers.Conv2D(filters, kernel_size=kernel, strides=num_strides, padding='same', input_shape=(256, 256, 3)))
+  model.add(layers.GaussianNoise(0.1)) #tip from reddit: https://github.com/ShivamShrirao/GANs_TF_2.0/blob/main/celeb_face_GAN.ipynb
+  model.add(layers.Conv2D(filters, kernel_size=kernel, strides=num_strides, padding='same', input_shape=(256, 256, 3), use_bias=False))
   model.add(layers.LeakyReLU(alpha_Discriminator))
+  if(filters != 32): #celeb_face_GAN.ipynb
+    model.add(layers.BatchNormalization(momentum=momentum_BatchNormalization))
 
 #other tutorial: https://github.com/vmvargas/GAN-for-Nuclei-Detection/blob/master/model-MNIST-cross-validation.py
 def make_discriminator(): #same tutorial, https://github.com/nicknochnack/GANBasics/blob/main/FashionGAN-Tutorial.ipynb
+  """
+  Building the discriminator.
+  """
   model = tf.keras.Sequential()
-  add_discriminator_layer(model, 64, (3, 3), strides[2])
-  add_discriminator_layer(model, 128, (3, 3), strides[1])
-  add_discriminator_layer(model, 256, (5, 5), strides[1])
-  add_discriminator_layer(model, 512, (5, 5), strides[1])
-  add_discriminator_layer(model, 1, (4, 4), strides[0])
+  add_discriminator_layer(model, 64, (3, 3), num_strides=(1,1))
+  add_discriminator_layer(model, 128, (3, 3), num_strides=(2,2))
+  add_discriminator_layer(model, 256, (5, 5), num_strides=(2,2))
+  add_discriminator_layer(model, 512, (5, 5), num_strides=(2,2))
+  add_discriminator_layer(model, 1, (4, 4), num_strides=(2,2))
   model.add(layers.Dropout(0.25))
   model.add(layers.Flatten())
-  model.add(layers.Activation('sigmoid'))
-  # model.add(layers.Dense(1)) #1 channel output
-  # model.add(layers.Dense(3, activation='sigmoid')) #3 channel output
-
+  model.add(layers.Dense(1, activation=None)) #1 channel output
   return model
 
 def discriminator_loss(real_output, fake_output):
@@ -126,10 +115,6 @@ def generator_loss(fake_output):
 #https://www.tensorflow.org/tutorials/generative/dcgan
 @tf.function #turns into a graph, for faster execution
 def train_step(image_batch, generator, discriminator, generator_optimizer, discriminator_optimizer):
-    
-    print("Image batch shape:", image_batch.get_shape())
-    
-    
     noise = tf.random.normal([BATCH_SIZE, noise_dim])
 
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape: #compute gradients for discriminator and generator using two different GradientTapes
@@ -151,10 +136,10 @@ def train_step(image_batch, generator, discriminator, generator_optimizer, discr
 def generate_and_save_images(model, epoch, test_input):
   predictions = model(test_input, training=False)
   for i in range(predictions.shape[0]): #for each image in the batch
-    plt.imshow(predictions[i, :, :, 0] * 0.5 + 0.5)
+    plt.imshow(predictions[i, :, :, :]*0.5 + 0.5)
     plt.axis('off')
     plt.savefig(f"GAN_output_images/img{i}/image{i}_epoch_{epoch:04d}.png")
-    plt.clf()  # Clear the current figure to prevent overlapping plots
+    plt.clf()  #clear the current figure to prevent overlapping plots
   
   
 def make_output_directories(examples_to_generate):
@@ -179,7 +164,6 @@ def decode_image(image):
   image = tf.reshape(image, [IMAGE_HEIGHT, IMAGE_WIDTH, 3])
   image = (tf.cast(image, tf.float32) / 127.5) - 1 #Normalize images to [-1, 1]
   return image
-  # return tf.data.Dataset.from_tensor_slices(image)
 
 #decode
 #https://www.kaggle.com/code/drzhuzhe/monet-cyclegan-tutorial
@@ -205,8 +189,8 @@ def train():
   
   print("Shuffling dataset, creating batches...")
   train_dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
-  print("Dataset:", dataset)
-  print("Train dataset:", train_dataset)
+  # print("Dataset:", dataset)
+  # print("Train dataset:", train_dataset)
   
   #Create generator and discriminator models:
   print("Creating generator model...")
@@ -227,9 +211,9 @@ def train():
   
   checkpoint_prefix = os.path.join(checkpoint_dir, "checkpt")
   
-  # checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer, 
-  #                                 discriminator_optimizer=discriminator_optimizer, 
-  #                                 generator=generator, discriminator=discriminator)
+  checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer, 
+                                  discriminator_optimizer=discriminator_optimizer, 
+                                  generator=generator, discriminator=discriminator)
   
   print("Creating directories for output images...")
   make_output_directories(EXAMPLES_TO_GENERATE)
@@ -240,8 +224,8 @@ def train():
   for epoch in range(EPOCHS):
     start = time.time()
     print("Epoch:", epoch)
-    for image_batch in train_dataset:
-      print("Iterating for image batch...")
+    for i, image_batch in enumerate(train_dataset):
+      print("Training step:", i, "/", len(train_dataset))
       train_step(image_batch, generator, discriminator, generator_optimizer, discriminator_optimizer)
 
     print("Saving images...")
@@ -252,10 +236,10 @@ def train():
                              seed)
 
     # Save the model every 15 epochs
-    # print("Saving checkpoint of model...")
-    # if (epoch + 1) % 2 == 0:
-    #   checkpoint.save(file_prefix = checkpoint_prefix)
-    #   print("Checkpoint saved successfully to file:", checkpoint_dir)
+    print("Saving checkpoint of model...")
+    if (epoch + 1) % 2 == 0:
+      checkpoint.save(file_prefix = checkpoint_prefix)
+      print("Checkpoint saved successfully to file:", checkpoint_dir)
 
     print ('Time for epoch {} is {} sec\n'.format(epoch + 1, time.time()-start))
 
