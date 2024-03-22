@@ -41,7 +41,8 @@ BUFFER_SIZE = 80 #should be around the size of the dataset! Shouldn't be hardcod
 
 # strides = [(4,4), (3,4), (2,2)] #from rectGAN aspect_ratio
 strides = [(1, 1), (2, 2), (2, 2)] #for now, for a square image
-noise_dim = 100
+# noise_dim = 100
+noise_dim = 4096
 seed = tf.random.normal([EXAMPLES_TO_GENERATE, noise_dim])
 
 alpha_Discriminator = 0.2
@@ -50,30 +51,34 @@ momentum_BatchNormalization = 0.8 #rectgan suggests 0.3
 
 ################# Building Generator #################
 
-def add_generator_layer(model, num_filters, kernel, num_strides): #from rectgan
+def add_generator_layer(model, filters, kernel): #from rectgan
   '''
   Adding Conv2DTranspose -> BatchNormalization -> LeakyReLU layers to the model
   '''
-  model.add(layers.Conv2DTranspose(num_filters, kernel_size=kernel, strides=num_strides, padding='same', use_bias=False))
-  model.add(layers.BatchNormalization(momentum=momentum_BatchNormalization))
-  model.add(layers.LeakyReLU())
+  model.add(layers.Conv2D(filters = filters, kernel_size = kernel, padding = 'same'))
+  model.add(layers.BatchNormalization(momentum = 0.7))
+  model.add(layers.Activation('relu'))
+  model.add(layers.UpSampling2D())
 
+#taken from: https://github.com/dkk/DCGAN256/blob/master/Hand%20Generator.ipynb
 def make_generator():
   '''
   Creating noise for the generator.
   '''
   model = tf.keras.Sequential() #add layers to generator model
-  model.add(layers.Dense(16*16*256, input_shape=(100,), use_bias=False))
-  model.add(layers.LeakyReLU(alpha=0.2))
-  model.add(layers.Reshape((16, 16, 256)))
+  model.add(layers.Reshape(target_shape = [1, 1, 4096], input_shape = [4096]))
+  model.add(layers.Conv2DTranspose(filters = 256, kernel_size = 4))
+  model.add(layers.Activation('relu'))
+  assert model.output_shape == (None, 4, 4, 256)
 
-  add_generator_layer(model, 256, (5, 5), num_strides=(2, 2))
-  add_generator_layer(model, 128, (5, 5), num_strides=(2, 2))
-  add_generator_layer(model, 64, (5, 5), num_strides=(2, 2))
-  add_generator_layer(model, 32, (5, 5), num_strides=(2, 2))
+  add_generator_layer(model, 256, (4, 4))
+  add_generator_layer(model, 128, (4, 4))
+  add_generator_layer(model, 64, (3, 3))
+  add_generator_layer(model, 32, (3, 3))
+  add_generator_layer(model, 16, (3, 3))
+  add_generator_layer(model, 8, (3, 3))
   model.add(layers.Conv2DTranspose(3,kernel_size=3,strides=1,padding='same',use_bias=False,kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.02)))
   model.add(layers.Activation('tanh'))
-  
   assert model.output_shape == (None, 256, 256, 3), "Generator output dimensions should be (256, 256, 3), aborting."
   return model
 
@@ -119,7 +124,6 @@ def generator_loss(fake_output):
 @tf.function #turns into a graph, for faster execution
 def train_step(image_batch, generator, discriminator, generator_optimizer, discriminator_optimizer):
     noise = tf.random.normal([BATCH_SIZE, noise_dim])
-
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape: #compute gradients for discriminator and generator using two different GradientTapes
       generated_images = generator(noise, training=True)
 
@@ -189,8 +193,6 @@ def train():
   print("Creating dataset from TFRecord...")
   dataset = tf.data.TFRecordDataset(TF_RECORD_PATH) #Do not use compression, https://github.com/shahrukhqasim/TIES-2.0/issues/14
   dataset = dataset.map(read_tfrecord) #Unpacks from string to a float32 with correct dims under shape
-  
-  dataset_size = sum(1 for _ in dataset)
 
   print("Shuffling dataset, creating batches...")
   train_dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
@@ -240,7 +242,7 @@ def train():
       train_step(image_batch, generator, discriminator, generator_optimizer, discriminator_optimizer)
 
     print("Saving images at epoch:", epoch)
-    if (epoch + 1) % 10 == 0: #save every 20 epochs
+    if (epoch + 1) % 5 == 0: #save every 5 epochs
       display.clear_output(wait=True)
       generate_and_save_images(generator,
                               epoch + 1,
@@ -248,7 +250,7 @@ def train():
 
     # Save the model every 50 epochs
     print("Saving checkpoint of model...")
-    if (epoch + 1) % 20 == 0:
+    if (epoch + 1) % 15 == 0:
       checkpoint.save(file_prefix = checkpoint_prefix)
       print("Checkpoint saved successfully to file:", checkpoint_dir)
 
