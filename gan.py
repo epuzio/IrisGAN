@@ -32,13 +32,12 @@ import subprocess
 
 
 ## Arguments for GAN
-EPOCHS = 1000
-EXAMPLES_TO_GENERATE = 6
+EPOCHS = 10000
+EXAMPLES_TO_GENERATE = 8
 IMAGE_HEIGHT = 256
 IMAGE_WIDTH = 256 #192?
 BATCH_SIZE = 8 #From tips and tricks article
 BUFFER_SIZE = 80 #should be around the size of the dataset! Shouldn't be hardcoded
-TF_RECORD_PATH = "output.tfrecord"
 
 # strides = [(4,4), (3,4), (2,2)] #from rectGAN aspect_ratio
 strides = [(1, 1), (2, 2), (2, 2)] #for now, for a square image
@@ -194,7 +193,7 @@ def train():
   dataset_size = sum(1 for _ in dataset)
 
   print("Shuffling dataset, creating batches...")
-  train_dataset = dataset.shuffle(dataset_size).batch(BATCH_SIZE)
+  train_dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
   
   #Create generator and discriminator models:
   print("Creating generator model...")
@@ -221,7 +220,15 @@ def train():
   
   print("Creating directories for output images...")
   make_output_directories(EXAMPLES_TO_GENERATE)
+
+  print("Restoring from checkpoint if available...")
+  checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+  if tf.train.latest_checkpoint(checkpoint_dir):
+    print("Checkpoint restored successfully.")
+  else:
+    print("No checkpoint found.")
   print("SETUP COMPLETE.\n\n")
+
   
 
   print("Beginning training loop...")
@@ -232,16 +239,16 @@ def train():
       print("Training step:", i)
       train_step(image_batch, generator, discriminator, generator_optimizer, discriminator_optimizer)
 
-    print("Saving images...")
-    # Produce images for the GIF as you go
-    display.clear_output(wait=True)
-    generate_and_save_images(generator,
-                             epoch + 1,
-                             seed)
+    print("Saving images at epoch:", epoch)
+    if (epoch + 1) % 10 == 0: #save every 20 epochs
+      display.clear_output(wait=True)
+      generate_and_save_images(generator,
+                              epoch + 1,
+                              seed)
 
-    # Save the model every 15 epochs
+    # Save the model every 50 epochs
     print("Saving checkpoint of model...")
-    if (epoch + 1) % 30 == 0:
+    if (epoch + 1) % 20 == 0:
       checkpoint.save(file_prefix = checkpoint_prefix)
       print("Checkpoint saved successfully to file:", checkpoint_dir)
 
@@ -257,4 +264,8 @@ def main():
   train()
 
 if __name__ == "__main__":
+  if len(sys.argv) <= 1:
+    TF_RECORD_PATH = "output.tfrecord"
+  else:
+    TF_RECORD_PATH = sys.argv[1]
   main()
