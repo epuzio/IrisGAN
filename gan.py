@@ -72,7 +72,7 @@ def make_generator():
   add_generator_layer(model, 128, (5, 5), num_strides=(2, 2))
   add_generator_layer(model, 64, (5, 5), num_strides=(2, 2))
   add_generator_layer(model, 32, (5, 5), num_strides=(2, 2))
-  model.add(layers.Conv2DTranspose(3,kernel_size=5,strides=4,padding='same',use_bias=False,kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.02)))
+  model.add(layers.Conv2DTranspose(3,kernel_size=3,strides=1,padding='same',use_bias=False,kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.02)))
   model.add(layers.Activation('tanh'))
   
   assert model.output_shape == (None, 256, 256, 3), "Generator output dimensions should be (256, 256, 3), aborting."
@@ -102,8 +102,7 @@ def make_discriminator(): #same tutorial, https://github.com/nicknochnack/GANBas
   model.add(layers.Dropout(0.25))
   model.add(layers.Flatten())
   model.add(layers.Dense(128))
-  model.add(layers.Activation('sigmoid'))
-  assert model.output_shape == (None, 1), "Discriminator output dimensions should be (1), aborting."
+  model.add(layers.Dense(1))
   return model
 
 def discriminator_loss(real_output, fake_output):
@@ -192,10 +191,10 @@ def train():
   dataset = tf.data.TFRecordDataset(TF_RECORD_PATH) #Do not use compression, https://github.com/shahrukhqasim/TIES-2.0/issues/14
   dataset = dataset.map(read_tfrecord) #Unpacks from string to a float32 with correct dims under shape
   
+  dataset_size = sum(1 for _ in dataset)
+
   print("Shuffling dataset, creating batches...")
-  train_dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
-  # print("Dataset:", dataset)
-  # print("Train dataset:", train_dataset)
+  train_dataset = dataset.shuffle(dataset_size).batch(BATCH_SIZE)
   
   #Create generator and discriminator models:
   print("Creating generator model...")
@@ -230,7 +229,7 @@ def train():
     start = time.time()
     print("Epoch:", epoch)
     for i, image_batch in enumerate(train_dataset):
-      print("Training step:", i, "/", len(train_dataset))
+      print("Training step:", i)
       train_step(image_batch, generator, discriminator, generator_optimizer, discriminator_optimizer)
 
     print("Saving images...")
