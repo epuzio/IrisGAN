@@ -32,7 +32,7 @@ import subprocess
 
 
 ## Arguments for GAN
-EPOCHS = 10
+EPOCHS = 1000
 EXAMPLES_TO_GENERATE = 6
 IMAGE_HEIGHT = 256
 IMAGE_WIDTH = 256 #192?
@@ -241,7 +241,7 @@ def train():
 
     # Save the model every 15 epochs
     print("Saving checkpoint of model...")
-    if (epoch + 1) % 2 == 0:
+    if (epoch + 1) % 30 == 0:
       checkpoint.save(file_prefix = checkpoint_prefix)
       print("Checkpoint saved successfully to file:", checkpoint_dir)
 
