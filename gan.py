@@ -72,18 +72,19 @@ def make_generator():
   add_generator_layer(model, 128, (5, 5), num_strides=(2, 2))
   add_generator_layer(model, 64, (5, 5), num_strides=(2, 2))
   add_generator_layer(model, 32, (5, 5), num_strides=(2, 2))
-  model.add(layers.Conv2DTranspose(3,kernel_size=3,strides=2,padding='same',use_bias=False,kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.02)))
-  model.add(layers.Activation('tanh')) # Final shape = (64,64,3)
-
+  model.add(layers.Conv2DTranspose(3,kernel_size=5,strides=4,padding='same',use_bias=False,kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.02)))
+  model.add(layers.Activation('tanh'))
+  
+  assert model.output_shape == (None, 256, 256, 3), "Generator output dimensions should be (256, 256, 3), aborting."
   return model
 
 #https://machinelearningmastery.com/semi-supervised-generative-adversarial-network/
-def add_discriminator_layer(model, filters, kernel, num_strides): #from rectgan/nets.py and https://github.com/vmvargas/GAN-for-Nuclei-Detection/blob/master/model-MNIST-cross-validation.py
+def add_discriminator_layer(model, filters, kernel, num_strides):
   model.add(layers.GaussianNoise(0.1)) #tip from reddit: https://github.com/ShivamShrirao/GANs_TF_2.0/blob/main/celeb_face_GAN.ipynb
-  model.add(layers.Conv2D(filters, kernel_size=kernel, strides=num_strides, padding='same', input_shape=(256, 256, 3), use_bias=False))
+  model.add(layers.Conv2D(filters, kernel_size=kernel, strides=num_strides, padding='same', use_bias=False))
+  model.add(layers.BatchNormalization(momentum=momentum_BatchNormalization))
   model.add(layers.LeakyReLU(alpha_Discriminator))
-  if(filters != 32): #celeb_face_GAN.ipynb
-    model.add(layers.BatchNormalization(momentum=momentum_BatchNormalization))
+    
 
 #other tutorial: https://github.com/vmvargas/GAN-for-Nuclei-Detection/blob/master/model-MNIST-cross-validation.py
 def make_discriminator(): #same tutorial, https://github.com/nicknochnack/GANBasics/blob/main/FashionGAN-Tutorial.ipynb
@@ -91,14 +92,18 @@ def make_discriminator(): #same tutorial, https://github.com/nicknochnack/GANBas
   Building the discriminator.
   """
   model = tf.keras.Sequential()
-  add_discriminator_layer(model, 64, (3, 3), num_strides=(1,1))
+  add_discriminator_layer(model, 8, (3, 3), num_strides=(2,2))
+  add_discriminator_layer(model, 16, (3, 3), num_strides=(2,2))
+  add_discriminator_layer(model, 32, (3, 3), num_strides=(2,2))
+  add_discriminator_layer(model, 64, (3, 3), num_strides=(2,2))
   add_discriminator_layer(model, 128, (3, 3), num_strides=(2,2))
-  add_discriminator_layer(model, 256, (5, 5), num_strides=(2,2))
-  add_discriminator_layer(model, 512, (5, 5), num_strides=(2,2))
-  add_discriminator_layer(model, 1, (4, 4), num_strides=(2,2))
+  add_discriminator_layer(model, 256, (3, 3), num_strides=(2,2))
+ 
   model.add(layers.Dropout(0.25))
   model.add(layers.Flatten())
-  model.add(layers.Dense(1, activation=None)) #1 channel output
+  model.add(layers.Dense(128))
+  model.add(layers.Activation('sigmoid'))
+  assert model.output_shape == (None, 1), "Discriminator output dimensions should be (1), aborting."
   return model
 
 def discriminator_loss(real_output, fake_output):
