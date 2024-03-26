@@ -1,12 +1,12 @@
-## IrisGAN
+# IrisGAN
 
-# Description
+### Description
 IrisGAN is a Generative Adversarial Network (GAN) built to generate images given video input.
 
-# Requirements
+### Requirements
 OpenCV, TensorFlow, TensorFlow Datasets, MatplotLib, NumPy
 
-# Installation
+### Installation
 1. Clone the repository
 2. Run 'pip install opencv-python tensorflow tensorflow-datasets matplotlib numpy'
 3. To create a TFRecord:
@@ -16,12 +16,12 @@ OpenCV, TensorFlow, TensorFlow Datasets, MatplotLib, NumPy
 3. To run the GAN:
 - Run 'python3 gan.py'
 
-# Libraries Used
+### Libraries Used
 1. [OpenCV Cascade Classifier](https://github.com/opencv/opencv/tree/master/data/haarcascades)
 2. [TensorFlow](https://www.tensorflow.org/tutorials/generative/dcgan)
 
 
-# Acknowledgements
+### Acknowledgements
 1. [TensorFlow DCGAN](https://www.tensorflow.org/tutorials/generative/dcgan)
 2. [pretranied-gan-minecraft by Jeff Heaton](https://github.com/jeffheaton/pretrained-gan-minecraft)
 3. [DCGAN256 by dkk](https://github.com/dkk/DCGAN256/tree/master)
