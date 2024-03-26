@@ -10,11 +10,11 @@ OpenCV, TensorFlow, TensorFlow Datasets, MatplotLib, NumPy
 
 ### Installation
 1. Clone the repository
-2. Run 'pip install opencv-python tensorflow tensorflow-datasets matplotlib numpy'
+2. From the terminal, run `pip install opencv-python tensorflow tensorflow-datasets matplotlib numpy`
 3. To create a TFRecord:
-- Convert video to image stills: `python3 detect.py load path/to/file`
+- Convert video to image stills: `python3 detect.py load path/to/file`, or drag and drop videos into the input_videos folder and run `python3 detect.py input_videos`
 - Zip images: `python3 detect.py zip`
-- Create TFRecord from zip: 'python3 detect.py tfr'
+- Create TFRecord from zip: `python3 detect.py tfr`
 3. To run the GAN:
 - Run `python3 gan.py`
 
