@@ -2,9 +2,6 @@
 
 ### Description
 IrisGAN is a Generative Adversarial Network (GAN) built to generate images given video input.
-![Milo-Output](README_images/Milo-Photo.jpg)
-![Milo-Output](README_images/Milo-GAN.jpg)
-
 ### Requirements
 OpenCV, TensorFlow, TensorFlow Datasets, MatplotLib, NumPy
 
