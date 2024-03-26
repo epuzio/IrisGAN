@@ -4,7 +4,7 @@
 IrisGAN is a Generative Adversarial Network (GAN) built to generate images given video input.
 | Real Image | Generated Image |
 |------------|-----------------|
-| <img src="https://github.com/epuzio/IrisGAN/assets/21165612/b815f7e5-a5ce-4031-a48c-9e7432cf7737" width="422"> | <img src="https://github.com/epuzio/IrisGAN/assets/21165612/ab224dfc-8e48-4b98-98bf-26f7ac34d98b" width="422"> |
+| <img src="https://github.com/epuzio/IrisGAN/assets/21165612/b815f7e5-a5ce-4031-a48c-9e7432cf7737" width="422"> | <img src="https://github.com/epuzio/IrisGAN/assets/21165612/ab224dfc-8e48-4b98-98bf-26f7ac34d98b" width="415"> |
 
 ### Requirements
 OpenCV, TensorFlow, TensorFlow Datasets, MatplotLib, NumPy
