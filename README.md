@@ -2,6 +2,8 @@
 
 ### Description
 IrisGAN is a Generative Adversarial Network (GAN) built to generate images given video input.
+![Milo-Output](README_images/Milo-Photo.jpg)
+![Milo-Output](README_images/Milo-GAN.jpg)
 
 ### Requirements
 OpenCV, TensorFlow, TensorFlow Datasets, MatplotLib, NumPy
@@ -10,11 +12,11 @@ OpenCV, TensorFlow, TensorFlow Datasets, MatplotLib, NumPy
 1. Clone the repository
 2. Run 'pip install opencv-python tensorflow tensorflow-datasets matplotlib numpy'
 3. To create a TFRecord:
-- Load images through 'python3 detect.py load path/to/file'
-- Zip images through 'python3 detect.py zip'
-- Create TFRecord from zip through 'python3 detect.py tfr'
+- Convert video to image stills: `python3 detect.py load path/to/file`
+- Zip images: `python3 detect.py zip`
+- Create TFRecord from zip: 'python3 detect.py tfr'
 3. To run the GAN:
-- Run 'python3 gan.py'
+- Run `python3 gan.py`
 
 ### Libraries Used
 1. [OpenCV Cascade Classifier](https://github.com/opencv/opencv/tree/master/data/haarcascades)
